@@ -8,7 +8,10 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.SwerveDriveWheelPositions;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import org.littletonrobotics.junction.AutoLogOutput;
+import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.subsystems.drive.Drivetrain;
 
 public class RobotState {
@@ -33,6 +36,8 @@ public class RobotState {
             };
     private Rotation2d rawGyroRotation = new Rotation2d();
 
+    private final Field2d field = new Field2d();
+
     private RobotState() {
         poseEstimator =
                 new SwerveDrivePoseEstimator(
@@ -46,6 +51,7 @@ public class RobotState {
                         new Pose2d(),
                         VecBuilder.fill(0.1, 0.1, 0.1),
                         VecBuilder.fill(0.5, 0.5, 5.0));
+        SmartDashboard.putData(field);
     }
 
     public void addOdometryObservation(
@@ -62,10 +68,20 @@ public class RobotState {
         lastModulePositions = modulePositions;
 
         poseEstimator.updateWithTime(timestamp, rawGyroRotation, modulePositions);
+        field.setRobotPose(getRobotPose());
     }
 
     public void addVelocityData(Twist2d velocity) {
         robotVelocity = velocity;
+    }
+
+    public void setActiveTrajectory(Pose2d[] trajectory) {
+        field.getObject("trajectory").setPoses(trajectory);
+        Logger.recordOutput("RobotState/ActiveTrajectory", trajectory);
+    }
+
+    public void setCurrentTrajectoryTarget(Pose2d target) {
+        Logger.recordOutput("RobotState/CurrentTrajectoryTarget", target);
     }
 
     public void resetPose(Pose2d newPose) {

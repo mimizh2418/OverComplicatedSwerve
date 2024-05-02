@@ -151,12 +151,8 @@ public class Drivetrain extends SubsystemBase {
                 this);
         Pathfinding.setPathfinder(new LocalADStarAK());
         PathPlannerLogging.setLogActivePathCallback(
-                (activePath) ->
-                    Logger.recordOutput(
-                            "RobotState/Trajectory", activePath.toArray(new Pose2d[0])));
-        PathPlannerLogging.setLogTargetPoseCallback(
-                (targetPose) ->
-                    Logger.recordOutput("RobotState/TrajectorySetpoint", targetPose));
+                (activePath) -> RobotState.getInstance().setActiveTrajectory(activePath.toArray(new Pose2d[0])));
+        PathPlannerLogging.setLogTargetPoseCallback(RobotState.getInstance()::setCurrentTrajectoryTarget);
     }
 
     @Override
