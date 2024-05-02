@@ -23,7 +23,6 @@ import org.team1540.swervedrive.util.ClosedLoopConfig;
 import org.team1540.swervedrive.util.LocalADStarAK;
 import org.team1540.swervedrive.util.swerve.ModuleConfig;
 import org.team1540.swervedrive.util.swerve.ModuleLimits;
-import org.team1540.swervedrive.util.swerve.SwerveSetpoint;
 import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator;
 
 import java.util.Arrays;
@@ -106,8 +105,8 @@ public class Drivetrain extends SubsystemBase {
 
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
-    private SwerveSetpoint currentSetpoint =
-            new SwerveSetpoint(new ChassisSpeeds(),
+    private SwerveSetpointGenerator.SwerveSetpoint currentSetpoint =
+            new SwerveSetpointGenerator.SwerveSetpoint(new ChassisSpeeds(),
                     new SwerveModuleState[] {
                             new SwerveModuleState(),
                             new SwerveModuleState(),

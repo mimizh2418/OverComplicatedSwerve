@@ -319,4 +319,6 @@ public class SwerveSetpointGenerator {
         }
         return new SwerveSetpoint(retSpeeds, retStates);
     }
+
+    public record SwerveSetpoint(ChassisSpeeds chassisSpeeds, SwerveModuleState[] moduleStates) {}
 }
