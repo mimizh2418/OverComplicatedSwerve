@@ -1,6 +1,3 @@
-// "Inspired" by Team 254's setpoint generator:
-// https://github.com/Team254/FRC-2023-Public/blob/main/src/main/java/com/team254/lib/swerve/SwerveSetpointGenerator.java
-
 package org.team1540.swervedrive.util.swerve;
 
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -16,6 +13,9 @@ import java.util.Optional;
 
 import static org.team1540.swervedrive.util.math.EqualsUtil.*;
 import static org.team1540.swervedrive.util.math.GeomUtil.*;
+
+// NOTE this file is available at:
+// https://github.com/Team254/FRC-2023-Public/blob/main/src/main/java/com/team254/lib/swerve/SwerveSetpointGenerator.java
 
 /**
  * Takes a prior setpoint (ChassisSpeeds), a desired setpoint (from a driver, or from a path follower), and outputs a

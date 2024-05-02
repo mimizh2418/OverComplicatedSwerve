@@ -8,6 +8,9 @@ import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.networktables.LoggedDashboardNumber;
 import org.team1540.swervedrive.Constants;
 
+// NOTE this file is available at:
+// https://github.com/Mechanical-Advantage/RobotCode2024/blob/main/src/main/java/org/littletonrobotics/frc2024/util/LoggedTunableNumber.java
+
 /**
  * Class for a tunable number. Gets value from dashboard in tuning mode, returns default if not or
  * value not in dashboard.
@@ -19,7 +22,7 @@ public class LoggedTunableNumber implements DoubleSupplier {
     private boolean hasDefault = false;
     private double defaultValue;
     private LoggedDashboardNumber dashboardNumber;
-    private Map<Integer, Double> lastHasChangedValues = new HashMap<>();
+    private final Map<Integer, Double> lastHasChangedValues = new HashMap<>();
 
     /**
      * Create a new LoggedTunableNumber

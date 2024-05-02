@@ -11,6 +11,9 @@ import org.team1540.swervedrive.util.LoggedTunableNumber;
 
 import java.util.function.DoubleSupplier;
 
+// NOTE: This file is available at
+// https://github.com/Mechanical-Advantage/RobotCode2024/blob/main/src/main/java/org/littletonrobotics/frc2024/commands/FeedForwardCharacterization.java
+
 public class WheelRadiusCharacterization extends Command {
     private static final LoggedTunableNumber characterizationSpeed =
             new LoggedTunableNumber("WheelRadiusCharacterization/SpeedRadsPerSec", 0.1);

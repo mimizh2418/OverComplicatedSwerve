@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+// NOTE: This file is available at
+// https://github.com/Mechanical-Advantage/RobotCode2024/blob/main/src/main/java/org/littletonrobotics/frc2024/commands/FeedForwardCharacterization.java
+
 public class FeedForwardCharacterization extends Command {
     private static final double START_DELAY_SECS = 2.0;
     private static final double RAMP_VOLTS_PER_SEC = 0.1;
