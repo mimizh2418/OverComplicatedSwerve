@@ -1,0 +1,104 @@
+package org.team1540.swervedrive;
+
+import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.GenericHID;
+import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import org.team1540.swervedrive.commands.FeedForwardCharacterization;
+import org.team1540.swervedrive.commands.WheelRadiusCharacterization;
+import org.team1540.swervedrive.subsystems.drive.*;
+import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import org.team1540.swervedrive.util.JoystickUtil;
+
+/**
+ * This class is where the bulk of the robot should be declared. Since Command-based is a
+ * "declarative" paradigm, very little robot logic should actually be handled in the {@link Robot}
+ * periodic methods (other than the scheduler calls). Instead, the structure of the robot (including
+ * subsystems, commands, and button mappings) should be declared here.
+ */
+public class RobotContainer {
+    private final RobotState robotState = RobotState.getInstance();
+
+    // Subsystems
+    public final Drivetrain drivetrain;
+
+    // Controller
+    private final CommandXboxController controller = new CommandXboxController(0);
+
+    // Dashboard inputs
+    private final LoggedDashboardChooser<Command> autoChooser;
+
+    /**
+     * The container for the robot. Contains subsystems, OI devices, and commands.
+     */
+    public RobotContainer() {
+        switch (Constants.currentMode) {
+            case REAL:
+                // Real robot, instantiate hardware IO implementations
+                drivetrain = Drivetrain.createReal();
+                break;
+
+            case SIM:
+                // Sim robot, instantiate physics sim IO implementations
+                drivetrain = Drivetrain.createSim();
+                break;
+
+            default:
+                // Replayed robot, disable IO implementations
+                drivetrain = Drivetrain.createDummy();
+                break;
+        }
+
+        autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+
+        if (Constants.isTuningMode()) {
+            autoChooser.addOption("Drive FF Characterization",
+                    new FeedForwardCharacterization(
+                            drivetrain,
+                            drivetrain::runFFCharacterization,
+                            drivetrain::getFFCharacterizationVelocity
+                    ).finallyDo(drivetrain::endCharacterization));
+            autoChooser.addOption("Drive Wheel Radius Characterization",
+                    new WheelRadiusCharacterization(drivetrain, WheelRadiusCharacterization.Direction.CLOCKWISE)
+                            .finallyDo(drivetrain::endCharacterization));
+        }
+
+        // Configure the button bindings
+        configureButtonBindings();
+    }
+
+    /**
+     * Use this method to define your button->command mappings. Buttons can be created by
+     * instantiating a {@link GenericHID} or one of its subclasses ({@link
+     * edu.wpi.first.wpilibj.Joystick} or {@link XboxController}), and then passing it to a {@link
+     * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
+     */
+    private void configureButtonBindings() {
+        drivetrain.setDefaultCommand(
+                Commands.run(
+                        () -> {
+                            double xPercent = -controller.getLeftY();
+                            double yPercent = -controller.getLeftX();
+                            double linearMagnitude = JoystickUtil.smartDeadzone(Math.hypot(xPercent, yPercent), 0.1);
+                            Rotation2d linearDirection = new Rotation2d(xPercent, yPercent);
+                            double omega = JoystickUtil.smartDeadzone(-controller.getRightX(), 0.1);
+                            drivetrain.drivePercent(linearMagnitude, linearDirection, omega, true);
+                        }, drivetrain
+                )
+        );
+        controller.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
+        controller.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
+    }
+
+    /**
+     * Use this to pass the autonomous command to the main {@link Robot} class.
+     *
+     * @return the command to run in autonomous
+     */
+    public Command getAutonomousCommand() {
+        return autoChooser.get();
+    }
+}

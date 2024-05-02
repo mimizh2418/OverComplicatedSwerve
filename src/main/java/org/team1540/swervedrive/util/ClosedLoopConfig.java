@@ -1,0 +1,113 @@
+package org.team1540.swervedrive.util;
+
+import com.ctre.phoenix6.configs.Slot0Configs;
+import com.ctre.phoenix6.signals.GravityTypeValue;
+import edu.wpi.first.math.controller.ArmFeedforward;
+import edu.wpi.first.math.controller.ElevatorFeedforward;
+import edu.wpi.first.math.controller.PIDController;
+import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.wpilibj.DriverStation;
+import org.team1540.swervedrive.Constants;
+
+public class ClosedLoopConfig {
+    public enum GravityFFType {
+        NONE,
+        ARM,
+        ELEVATOR
+    }
+
+    // PID constants
+    public final double kP;
+    public final double kI;
+    public final double kD;
+
+    // Feedforward constants
+    public final double kS;
+    public final double kV;
+    public final double kA;
+    public final double kG;
+
+    public final GravityFFType gravityFFType;
+
+    public ClosedLoopConfig(
+            double kP, double kI, double kD, double kS, double kV, double kA, double kG, GravityFFType gravityFFType) {
+        this.kP = kP;
+        this.kI = kI;
+        this.kD = kD;
+        this.kS = kS;
+        this.kV = kV;
+        this.kA = kA;
+        this.kG = kG;
+        this.gravityFFType = gravityFFType;
+    }
+
+    public ClosedLoopConfig(double kP, double kI, double kD, double kS, double kV, double kA) {
+        this(kP, kI, kD, kS, kV, kA, 0, GravityFFType.NONE);
+    }
+
+    public ClosedLoopConfig(double kP, double kI, double kD, double kS, double kV) {
+        this(kP, kI, kD, kS, kV, 0);
+    }
+
+    public ClosedLoopConfig(double kP, double kI, double kD) {
+        this(kP, kI, kD, 0, 0);
+    }
+
+    public ClosedLoopConfig(PIDController pid, SimpleMotorFeedforward ff) {
+        this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka);
+    }
+
+    public ClosedLoopConfig(PIDController pid, ArmFeedforward ff) {
+        this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka, ff.kg, GravityFFType.ARM);
+    }
+
+    public ClosedLoopConfig(PIDController pid, ElevatorFeedforward ff) {
+        this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka, ff.kg, GravityFFType.ELEVATOR);
+    }
+
+    public PIDController createPIDController() {
+        return new PIDController(kP, kI, kD, Constants.LOOP_PERIOD_SECS);
+    }
+
+    public SimpleMotorFeedforward createMotorFF() {
+        return new SimpleMotorFeedforward(kS, kV, kA);
+    }
+
+    public ArmFeedforward createArmFF() {
+        if (gravityFFType != GravityFFType.ARM) {
+            DriverStation.reportError("Trying to create arm feedforward with non-arm config", true);
+        }
+        return new ArmFeedforward(kS, kV, kA, kG);
+    }
+
+    public ElevatorFeedforward createElevatorFF() {
+        if (gravityFFType != GravityFFType.ELEVATOR) {
+            DriverStation.reportError("Trying to create elevator feedforward with non-elevator config", true);
+        }
+        return new ElevatorFeedforward(kS, kV, kA, kG);
+    }
+
+    public Slot0Configs createCTREConfigs() {
+        Slot0Configs configs = new Slot0Configs();
+        configs.kP = kP;
+        configs.kI = kI;
+        configs.kD = kD;
+
+        configs.kS = kS;
+        configs.kV = kV;
+        configs.kA = kA;
+
+        switch (gravityFFType) {
+            case ARM -> {
+                configs.kG = kG;
+                configs.GravityType = GravityTypeValue.Arm_Cosine;
+            } case ELEVATOR -> {
+                configs.kG = kG;
+                configs.GravityType = GravityTypeValue.Elevator_Static;
+            } case NONE -> {
+                configs.kG = 0;
+            }
+        }
+        return configs;
+    }
+}
