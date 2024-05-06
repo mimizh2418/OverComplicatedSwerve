@@ -24,6 +24,7 @@ import org.team1540.swervedrive.util.LocalADStarAK;
 import org.team1540.swervedrive.util.swerve.ModuleConfig;
 import org.team1540.swervedrive.util.swerve.ModuleLimits;
 import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator;
+import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator.SwerveSetpoint;
 
 import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
@@ -36,6 +37,7 @@ public class Drivetrain extends SubsystemBase {
     public static final String CAN_BUS = "swerve";
     public static final double ODOMETRY_FREQUENCY = 250.0;
 
+    // Drive and turn closed loop gains
     public static final ClosedLoopConfig DRIVE_VELOCITY_GAINS =
             Robot.isReal()
                     ? new ClosedLoopConfig(0.3, 0, 0, 0.258, 0.804)
@@ -45,6 +47,7 @@ public class Drivetrain extends SubsystemBase {
                     ? new ClosedLoopConfig(100, 0, 0.5)
                     : new ClosedLoopConfig(35.0, 0.0, 0.0);
 
+    // Module configuration
     public static final ModuleConfig MODULE_CONFIG =
             new ModuleConfig(
                     (50.0 / 14.0) * (16.0 / 28.0) * (45.0 / 15.0),
@@ -53,24 +56,25 @@ public class Drivetrain extends SubsystemBase {
                     100,
                     DRIVE_VELOCITY_GAINS,
                     TURN_POSITION_GAINS,
-                    CAN_BUS
-            );
+                    CAN_BUS);
     public static final double WHEEL_RADIUS = Units.inchesToMeters(2.0);
 
+    // Module IDs
     public static final int FL_ID = 1;
     public static final int FR_ID = 2;
     public static final int BL_ID = 3;
     public static final int BR_ID = 4;
 
+    // Kinematic constants
     public static final double MAX_LINEAR_SPEED = Units.feetToMeters(16.5);
     public static final double MAX_LINEAR_ACCELERATION = Units.feetToMeters(75.0);
-    public static final double TRACK_WIDTH_X = Units.inchesToMeters(18.75);
+    public static final double TRACK_WIDTH_X = Units.inchesToMeters(19.75);
     public static final double TRACK_WIDTH_Y = Units.inchesToMeters(19.75);
     public static final double DRIVE_BASE_RADIUS = Math.hypot(TRACK_WIDTH_X / 2.0, TRACK_WIDTH_Y / 2.0);
     public static final double MAX_ANGULAR_SPEED = MAX_LINEAR_SPEED / DRIVE_BASE_RADIUS;
 
     public static final ModuleLimits MODULE_LIMITS =
-            new ModuleLimits(MAX_LINEAR_SPEED, MAX_LINEAR_ACCELERATION, Units.degreesToRadians(1440));
+            new ModuleLimits(MAX_LINEAR_SPEED, MAX_LINEAR_ACCELERATION, Units.degreesToRadians(1700));
     public static final SwerveDriveKinematics KINEMATICS = new SwerveDriveKinematics(getModuleTranslations());
 
     public enum DriveMode {
@@ -105,8 +109,8 @@ public class Drivetrain extends SubsystemBase {
 
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
-    private SwerveSetpointGenerator.SwerveSetpoint currentSetpoint =
-            new SwerveSetpointGenerator.SwerveSetpoint(new ChassisSpeeds(),
+    private SwerveSetpoint currentSetpoint =
+            new SwerveSetpoint(new ChassisSpeeds(),
                     new SwerveModuleState[] {
                             new SwerveModuleState(),
                             new SwerveModuleState(),
@@ -159,21 +163,13 @@ public class Drivetrain extends SubsystemBase {
     public void periodic() {
         odometryLock.lock(); // Prevents odometry updates while reading data
         gyroIO.updateInputs(gyroInputs);
-        for (Module module : modules) {
-            module.updateInputs();
-        }
+        for (Module module : modules) module.updateInputs();
         odometryLock.unlock();
         Logger.processInputs("Drivetrain/Gyro", gyroInputs);
-        for (Module module : modules) {
-            module.periodic();
-        }
+        for (Module module : modules) module.periodic();
 
         // Stop moving when disabled
-        if (DriverStation.isDisabled()) {
-            for (Module module : modules) {
-                module.stop();
-            }
-        }
+        if (DriverStation.isDisabled()) for (Module module : modules) module.stop();
 
         // Update odometry
         double[] sampleTimestamps = modules[0].getOdometryTimestamps(); // All signals are sampled together
@@ -283,8 +279,7 @@ public class Drivetrain extends SubsystemBase {
                         : new ChassisSpeeds(
                         linearVelocity.getX() * getMaxLinearSpeedMetersPerSec(),
                         linearVelocity.getY() * getMaxLinearSpeedMetersPerSec(),
-                        rotPercent * getMaxAngularSpeedRadPerSec())
-        );
+                        rotPercent * getMaxAngularSpeedRadPerSec()));
     }
 
     /** Stops the drive. */
@@ -298,9 +293,7 @@ public class Drivetrain extends SubsystemBase {
      */
     public void stopWithX() {
         Rotation2d[] headings = new Rotation2d[4];
-        for (int i = 0; i < 4; i++) {
-            headings[i] = getModuleTranslations()[i].getAngle();
-        }
+        for (int i = 0; i < 4; i++) headings[i] = getModuleTranslations()[i].getAngle();
         KINEMATICS.resetHeadings(headings);
         forceModuleRotation = true;
         stop();
