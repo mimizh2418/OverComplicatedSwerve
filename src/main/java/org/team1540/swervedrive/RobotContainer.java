@@ -62,7 +62,7 @@ public class RobotContainer {
                             drivetrain::getFFCharacterizationVelocity
                     ).finallyDo(drivetrain::endCharacterization));
             autoChooser.addOption("Drive Wheel Radius Characterization",
-                    new WheelRadiusCharacterization(drivetrain, WheelRadiusCharacterization.Direction.CLOCKWISE)
+                    new WheelRadiusCharacterization(drivetrain, WheelRadiusCharacterization.Direction.COUNTER_CLOCKWISE)
                             .finallyDo(drivetrain::endCharacterization));
         }
 

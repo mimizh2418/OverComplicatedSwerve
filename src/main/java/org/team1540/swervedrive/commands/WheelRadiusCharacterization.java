@@ -16,7 +16,7 @@ import java.util.function.DoubleSupplier;
 
 public class WheelRadiusCharacterization extends Command {
     private static final LoggedTunableNumber characterizationSpeed =
-            new LoggedTunableNumber("WheelRadiusCharacterization/SpeedRadsPerSec", 0.1);
+            new LoggedTunableNumber("WheelRadiusCharacterization/SpeedRadsPerSec", 0.5);
     private static final double driveRadius = Drivetrain.DRIVE_BASE_RADIUS;
     private static final DoubleSupplier gyroYawRadsSupplier =
             () -> RobotState.getInstance().getRawGyroRotation().getRadians();
@@ -66,7 +66,8 @@ public class WheelRadiusCharacterization extends Command {
                 omegaLimiter.calculate(omegaDirection.value * characterizationSpeed.get()));
 
         // Get yaw and wheel positions
-        accumGyroYawRads += MathUtil.angleModulus(gyroYawRadsSupplier.getAsDouble() - lastGyroYawRads);
+        accumGyroYawRads +=
+                Math.abs(MathUtil.angleModulus(gyroYawRadsSupplier.getAsDouble() - lastGyroYawRads));
         lastGyroYawRads = gyroYawRadsSupplier.getAsDouble();
         double averageWheelPosition = 0.0;
         double[] wheelPositions = drivetrain.getWheelRadiusCharacterizationPositions();
