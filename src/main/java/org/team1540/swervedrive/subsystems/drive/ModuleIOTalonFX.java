@@ -43,6 +43,7 @@ public class ModuleIOTalonFX implements ModuleIO {
     private final StatusSignal<Double> driveVelocity;
     private final StatusSignal<Double> driveAppliedVolts;
     private final StatusSignal<Double> driveCurrent;
+    private final StatusSignal<Double> driveTemp;
 
     private final StatusSignal<Double> turnAbsolutePosition;
     private final StatusSignal<Double> turnPosition;
@@ -50,6 +51,7 @@ public class ModuleIOTalonFX implements ModuleIO {
     private final StatusSignal<Double> turnVelocity;
     private final StatusSignal<Double> turnAppliedVolts;
     private final StatusSignal<Double> turnCurrent;
+    private final StatusSignal<Double> turnTemp;
 
     private final VelocityVoltage driveVelocityReq = new VelocityVoltage(0).withSlot(0).withEnableFOC(true);
     private final VoltageOut driveVoltageReq = new VoltageOut(0).withEnableFOC(true);
@@ -70,6 +72,7 @@ public class ModuleIOTalonFX implements ModuleIO {
         driveVelocity = drive.getVelocity();
         driveAppliedVolts = drive.getMotorVoltage();
         driveCurrent = drive.getSupplyCurrent();
+        driveTemp = drive.getDeviceTemp();
 
         turnAbsolutePosition = cancoder.getAbsolutePosition();
         turnPosition = turn.getPosition();
@@ -77,6 +80,7 @@ public class ModuleIOTalonFX implements ModuleIO {
         turnVelocity = turn.getVelocity();
         turnAppliedVolts = turn.getMotorVoltage();
         turnCurrent = turn.getSupplyCurrent();
+        turnTemp = turn.getDeviceTemp();
 
         BaseStatusSignal.setUpdateFrequencyForAll(
                 Drivetrain.ODOMETRY_FREQUENCY, drivePosition, turnPosition);
@@ -85,37 +89,45 @@ public class ModuleIOTalonFX implements ModuleIO {
                 driveVelocity,
                 driveAppliedVolts,
                 driveCurrent,
+                driveTemp,
                 turnAbsolutePosition,
                 turnVelocity,
                 turnAppliedVolts,
-                turnCurrent);
+                turnCurrent,
+                turnTemp);
         drive.optimizeBusUtilization();
         turn.optimizeBusUtilization();
     }
 
     @Override
     public void updateInputs(ModuleIOInputs inputs) {
-        BaseStatusSignal.refreshAll(
-                drivePosition,
-                driveVelocity,
-                driveAppliedVolts,
-                driveCurrent,
-                turnAbsolutePosition,
+        inputs.driveMotorConnected =
+                BaseStatusSignal.refreshAll(
+                        drivePosition,
+                        driveVelocity,
+                        driveAppliedVolts,
+                        driveCurrent,
+                        driveTemp).isOK();
+        inputs.turnMotorConnected = BaseStatusSignal.refreshAll(
                 turnPosition,
                 turnVelocity,
                 turnAppliedVolts,
-                turnCurrent);
+                turnCurrent,
+                turnTemp).isOK();
+        inputs.turnEncoderConnected = turnAbsolutePosition.refresh().getStatus().isOK();
 
         inputs.drivePositionRads = Units.rotationsToRadians(drivePosition.getValueAsDouble());
         inputs.driveVelocityRadPerSec = Units.rotationsToRadians(driveVelocity.getValueAsDouble());
         inputs.driveAppliedVolts = driveAppliedVolts.getValueAsDouble();
         inputs.driveCurrentAmps = driveCurrent.getValueAsDouble();
+        inputs.driveTempCelsius = driveTemp.getValueAsDouble();
 
         inputs.turnAbsolutePosition = Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble());
         inputs.turnPosition = Rotation2d.fromRotations(turnPosition.getValueAsDouble());
         inputs.turnVelocityRadPerSec = turnVelocity.getValueAsDouble();
         inputs.turnAppliedVolts = turnAppliedVolts.getValueAsDouble();
         inputs.turnCurrentAmps = turnCurrent.getValueAsDouble();
+        inputs.turnTempCelsius = turnTemp.getValueAsDouble();
 
         inputs.odometryTimestamps =
                 timestampQueue.stream().mapToDouble((Double value) -> value).toArray();

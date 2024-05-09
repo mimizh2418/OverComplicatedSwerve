@@ -1,6 +1,10 @@
 package org.team1540.swervedrive;
 
+import com.ctre.phoenix6.CANBus;
+import edu.wpi.first.hal.can.CANStatus;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.littletonrobotics.junction.LogFileUtil;
@@ -9,6 +13,8 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+import org.team1540.swervedrive.subsystems.drive.Drivetrain;
+import org.team1540.swervedrive.util.Alert;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -17,8 +23,27 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
  * project.
  */
 public class Robot extends LoggedRobot {
+    private static final double lowBatteryDisableTime = 1.5;
+    private static final double lowBatteryVoltageThreshold = 12.0;
+    private static final double canErrorTimeThreshold = 0.5;
+
     private Command autonomousCommand;
     private RobotContainer robotContainer;
+
+    private final Timer disabledTimer = new Timer();
+    private final Timer canInitialErrorTimer = new Timer();
+    private final Timer canErrorTimer = new Timer();
+    private final Timer canivoreErrorTimer = new Timer();
+
+    private final CANStatus lastCanStatus = new CANStatus();
+    private final CANBus.CANBusStatus lastCanivoreStatus = new CANBus.CANBusStatus();
+
+    private final Alert canErrorAlert =
+            new Alert("RIO CAN bus error, robot functionality may be severely limited", Alert.AlertType.ERROR);
+    private final Alert canivoreErrorAlert =
+            new Alert("Swerve CAN bus error, drive functionality may be severely limited", Alert.AlertType.ERROR);
+    private final Alert lowBatteryAlert =
+            new Alert("Battery voltage is low, consider replacing it", Alert.AlertType.WARNING);
 
     /**
      * This function is run when the robot is first started up and should be used for any
@@ -72,6 +97,11 @@ public class Robot extends LoggedRobot {
         // Start AdvantageKit logger
         Logger.start();
 
+        disabledTimer.restart();
+        canErrorTimer.restart();
+        canivoreErrorTimer.restart();
+        canInitialErrorTimer.restart();
+
         // Instantiate our RobotContainer. This will perform all our button bindings,
         // and put our autonomous chooser on the dashboard.
         robotContainer = new RobotContainer();
@@ -88,17 +118,54 @@ public class Robot extends LoggedRobot {
         // This must be called from the robot's periodic block in order for anything in
         // the Command-based framework to work.
         CommandScheduler.getInstance().run();
+
+        // Update CAN alert timers
+        CANStatus canStatus = RobotController.getCANStatus();
+        if (canStatus.transmitErrorCount > lastCanStatus.transmitErrorCount
+                || canStatus.receiveErrorCount > lastCanStatus.receiveErrorCount){
+            canErrorTimer.reset();
+        }
+        lastCanStatus.setStatus(
+                canStatus.percentBusUtilization,
+                canStatus.busOffCount,
+                canStatus.txFullCount,
+                canStatus.receiveErrorCount,
+                canStatus.transmitErrorCount);
+
+        CANBus.CANBusStatus canivoreStatus = CANBus.getStatus(Drivetrain.CAN_BUS);
+        if (!canivoreStatus.Status.isOK()
+                || canivoreStatus.REC > lastCanivoreStatus.REC
+                || canivoreStatus.TEC > lastCanivoreStatus.TEC) {
+            canivoreErrorTimer.reset();
+        }
+        lastCanivoreStatus.Status = canivoreStatus.Status;
+        lastCanivoreStatus.BusUtilization = canivoreStatus.BusUtilization;
+        lastCanivoreStatus.BusOffCount = canivoreStatus.BusOffCount;
+        lastCanivoreStatus.TxFullCount = canivoreStatus.TxFullCount;
+        lastCanivoreStatus.REC = canivoreStatus.REC;
+        lastCanivoreStatus.TEC = canivoreStatus.TEC;
+
+        if (DriverStation.isEnabled()) disabledTimer.reset();
+
+        // Update alerts
+        canErrorAlert.set(
+                !canErrorTimer.hasElapsed(canErrorTimeThreshold)
+                && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
+        canivoreErrorAlert.set(
+                !canivoreErrorTimer.hasElapsed(canErrorTimeThreshold)
+                && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
+        lowBatteryAlert.set(
+                RobotController.getBatteryVoltage() < lowBatteryVoltageThreshold
+                        && disabledTimer.hasElapsed(lowBatteryDisableTime));
     }
 
     /** This function is called once when the robot is disabled. */
     @Override
-    public void disabledInit() {
-    }
+    public void disabledInit() {}
 
     /** This function is called periodically when disabled. */
     @Override
-    public void disabledPeriodic() {
-    }
+    public void disabledPeriodic() {}
 
     /** This autonomous runs the autonomous command selected by your {@link RobotContainer} class. */
     @Override

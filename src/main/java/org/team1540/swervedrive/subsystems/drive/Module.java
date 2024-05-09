@@ -6,6 +6,7 @@ import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.util.Units;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
+import org.team1540.swervedrive.util.Alert;
 
 public class Module {
     public static final LoggedTunableNumber driveKP =
@@ -20,6 +21,7 @@ public class Module {
             new LoggedTunableNumber("Drivetrain/Modules/TurnKP", Drivetrain.MODULE_CONFIG.turnPositionGains().kP);
     public static final LoggedTunableNumber turnKD =
             new LoggedTunableNumber("Drivetrain/Modules/TurnKD", Drivetrain.MODULE_CONFIG.turnPositionGains().kD);
+    private static final String[] moduleNames = new String[]{"FL", "FR", "BL", "BR"};
 
     private final ModuleIO io;
     private final ModuleIOInputsAutoLogged inputs = new ModuleIOInputsAutoLogged();
@@ -27,10 +29,21 @@ public class Module {
 
     private SwerveModulePosition[] odometryPositions = new SwerveModulePosition[]{};
 
+    private final Alert driveMotorDisconnected;
+    private final Alert turnMotorDisconnected;
+    private final Alert turnEncoderDisconnected;
+
     public Module(ModuleIO io, int index) {
         this.io = io;
         this.index = index;
         setBrakeMode(true);
+
+        driveMotorDisconnected =
+                new Alert(moduleNames[index] + " drive motor disconnected!", Alert.AlertType.WARNING);
+        turnMotorDisconnected =
+                new Alert(moduleNames[index] + " turn motor disconnected!", Alert.AlertType.WARNING);
+        turnEncoderDisconnected =
+                new Alert(moduleNames[index] + " turn encoder disconnected!", Alert.AlertType.WARNING);
     }
 
     /** Update inputs without running the rest of the periodic logic. This is useful since these
@@ -56,6 +69,10 @@ public class Module {
                 hashCode(), () -> io.setDrivePID(driveKP.get(), 0.0, driveKD.get()), driveKP, driveKD);
         LoggedTunableNumber.ifChanged(
                 hashCode(), () -> io.setTurnPID(turnKP.get(), 0.0, turnKD.get()), turnKP, turnKD);
+
+        driveMotorDisconnected.set(!inputs.driveMotorConnected);
+        turnMotorDisconnected.set(!inputs.turnMotorConnected);
+        turnEncoderDisconnected.set(!inputs.turnEncoderConnected);
     }
 
     /** Runs the module with the specified setpoint state. Returns the optimized state. */

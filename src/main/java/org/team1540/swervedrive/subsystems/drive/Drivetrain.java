@@ -21,6 +21,7 @@ import org.team1540.swervedrive.RobotState;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
 import org.team1540.swervedrive.util.ClosedLoopConfig;
 import org.team1540.swervedrive.util.LocalADStarAK;
+import org.team1540.swervedrive.util.Alert;
 import org.team1540.swervedrive.util.swerve.ModuleConfig;
 import org.team1540.swervedrive.util.swerve.ModuleLimits;
 import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator;
@@ -124,6 +125,8 @@ public class Drivetrain extends SubsystemBase {
     @AutoLogOutput(key = "Drivetrain/CurrentDriveMode")
     private DriveMode currentDriveMode = DriveMode.DEFAULT;
     private double characterizationInput;
+
+    private final Alert gyroDisconnected = new Alert("Gyro disconnected!", Alert.AlertType.WARNING);
 
     public Drivetrain(
             GyroIO gyroIO,
@@ -252,6 +255,8 @@ public class Drivetrain extends SubsystemBase {
             }
             Logger.recordOutput("Drivetrain/SwerveStates/OptimizedSetpoints", setpointStates);
         }
+
+        gyroDisconnected.set(Robot.isReal() && !gyroInputs.connected);
     }
 
     /**

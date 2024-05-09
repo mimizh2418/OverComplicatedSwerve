@@ -12,6 +12,7 @@ import org.team1540.swervedrive.commands.WheelRadiusCharacterization;
 import org.team1540.swervedrive.subsystems.drive.*;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.team1540.swervedrive.util.JoystickUtil;
+import org.team1540.swervedrive.util.Alert;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -64,6 +65,8 @@ public class RobotContainer {
             autoChooser.addOption("Drive Wheel Radius Characterization",
                     new WheelRadiusCharacterization(drivetrain, WheelRadiusCharacterization.Direction.COUNTER_CLOCKWISE)
                             .finallyDo(drivetrain::endCharacterization));
+
+            new Alert("Tuning mode enabled", Alert.AlertType.INFO).set(true);
         }
 
         // Configure the button bindings
