@@ -5,23 +5,26 @@ import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.HolonomicPathFollowerConfig;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import com.pathplanner.lib.util.ReplanningConfig;
+import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.Robot;
 import org.team1540.swervedrive.RobotState;
-import org.team1540.swervedrive.util.AllianceFlipUtil;
-import org.team1540.swervedrive.util.ClosedLoopConfig;
-import org.team1540.swervedrive.util.LocalADStarAK;
-import org.team1540.swervedrive.util.Alert;
+import org.team1540.swervedrive.commands.FeedForwardCharacterization;
+import org.team1540.swervedrive.commands.WheelRadiusCharacterization;
+import org.team1540.swervedrive.util.*;
 import org.team1540.swervedrive.util.swerve.ModuleConfig;
 import org.team1540.swervedrive.util.swerve.ModuleLimits;
 import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator;
@@ -30,6 +33,9 @@ import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator.SwerveSetpoi
 import java.util.Arrays;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.BooleanSupplier;
+import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 
 import static org.team1540.swervedrive.util.math.EqualsUtil.*;
 import static org.team1540.swervedrive.util.math.GeomUtil.*;
@@ -73,10 +79,20 @@ public class Drivetrain extends SubsystemBase {
     public static final double TRACK_WIDTH_Y = Units.inchesToMeters(19.75);
     public static final double DRIVE_BASE_RADIUS = Math.hypot(TRACK_WIDTH_X / 2.0, TRACK_WIDTH_Y / 2.0);
     public static final double MAX_ANGULAR_SPEED = MAX_LINEAR_SPEED / DRIVE_BASE_RADIUS;
+    public static final double MAX_ANGULAR_ACCEL = MAX_LINEAR_ACCELERATION / DRIVE_BASE_RADIUS;
 
     public static final ModuleLimits MODULE_LIMITS =
             new ModuleLimits(MAX_LINEAR_SPEED, MAX_LINEAR_ACCELERATION, Units.degreesToRadians(1700));
     public static final SwerveDriveKinematics KINEMATICS = new SwerveDriveKinematics(getModuleTranslations());
+
+    public static final LoggedTunableNumber headingKP =
+            new LoggedTunableNumber("Drivetrain/HeadingController/KP", 0.5);
+    public static final LoggedTunableNumber headingKD =
+            new LoggedTunableNumber("Drivetrain/HeadingController/KD", 0.0);
+    public static final LoggedTunableNumber maxHeadingVelocityMultiplier =
+            new LoggedTunableNumber("Drivetrain/HeadingController/MaxVelocityMultiplier", 0.8);
+    public static final LoggedTunableNumber maxHeadingAccelerationMultiplier =
+            new LoggedTunableNumber("Drivetrain/HeadingController/MaxAccelerationMultiplier", 0.8);
 
     public enum DriveMode {
         /** Standard drive mode, driving according to desired chassis speeds */
@@ -108,6 +124,11 @@ public class Drivetrain extends SubsystemBase {
             };
     private double lastOdometryUpdateTime = 0.0;
 
+    @AutoLogOutput(key = "Drivetrain/CurrentDriveMode")
+    private DriveMode currentDriveMode = DriveMode.DEFAULT;
+    private double characterizationInput;
+    private boolean forceModuleRotation = false;
+
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
     private SwerveSetpoint currentSetpoint =
@@ -118,13 +139,18 @@ public class Drivetrain extends SubsystemBase {
                             new SwerveModuleState(),
                             new SwerveModuleState()
                     });
+    private Supplier<Rotation2d> headingGoal = null;
+
     private final SwerveSetpointGenerator setpointGenerator =
             new SwerveSetpointGenerator(KINEMATICS, getModuleTranslations());
-    private boolean forceModuleRotation = false;
-
-    @AutoLogOutput(key = "Drivetrain/CurrentDriveMode")
-    private DriveMode currentDriveMode = DriveMode.DEFAULT;
-    private double characterizationInput;
+    private final ProfiledPIDController headingController =
+            new ProfiledPIDController(
+                    headingKP.get(),
+                    0.0,
+                    headingKD.get(),
+                    new TrapezoidProfile.Constraints(
+                            MAX_ANGULAR_SPEED * maxHeadingVelocityMultiplier.get(),
+                            MAX_ANGULAR_ACCEL * maxHeadingAccelerationMultiplier.get()));
 
     private final Alert gyroDisconnected = new Alert("Gyro disconnected!", Alert.AlertType.WARNING);
 
@@ -236,6 +262,13 @@ public class Drivetrain extends SubsystemBase {
                         KINEMATICS.toSwerveModuleStates(
                                 new ChassisSpeeds(0, 0, characterizationInput));
             } default -> {
+                if (headingGoal != null) {
+                    Logger.recordOutput("Drivetrain/HeadingGoal", headingGoal.get());
+                    desiredSpeeds.omegaRadiansPerSecond =
+                            headingController.calculate(
+                                    RobotState.getInstance().getRotation().getRadians(),
+                                    headingGoal.get().getRadians());
+                }
                 Logger.recordOutput(
                         "Drivetrain/SwerveStates/DesiredSetpoints", KINEMATICS.toSwerveModuleStates(desiredSpeeds));
                 // Generate kinematically feasible setpoint
@@ -256,6 +289,21 @@ public class Drivetrain extends SubsystemBase {
             Logger.recordOutput("Drivetrain/SwerveStates/OptimizedSetpoints", setpointStates);
         }
 
+        // Update tunable numbers
+        LoggedTunableNumber.ifChanged(
+                hashCode(),
+                () -> headingController.setPID(headingKP.get(), 0.0, headingKD.get()), headingKP, headingKD);
+        LoggedTunableNumber.ifChanged(
+                hashCode(),
+                () -> headingController.setConstraints(
+                        new TrapezoidProfile.Constraints(
+                                MAX_ANGULAR_SPEED * maxHeadingVelocityMultiplier.get(),
+                                MAX_ANGULAR_ACCEL * maxHeadingAccelerationMultiplier.get())),
+                maxHeadingVelocityMultiplier,
+                maxHeadingAccelerationMultiplier);
+
+
+        // Update gyro alerts
         gyroDisconnected.set(Robot.isReal() && !gyroInputs.connected);
     }
 
@@ -267,24 +315,6 @@ public class Drivetrain extends SubsystemBase {
     public void runVelocity(ChassisSpeeds speeds) {
         if (!epsilonEquals(toTwist2d(speeds), new Twist2d())) forceModuleRotation = false;
         desiredSpeeds = ChassisSpeeds.discretize(speeds, Constants.LOOP_PERIOD_SECS);
-    }
-
-    public void drivePercent(double linearPercent, Rotation2d direction, double rotPercent, boolean fieldRelative) {
-        Translation2d linearVelocity =
-                new Pose2d(new Translation2d(), direction)
-                        .transformBy(new Transform2d(linearPercent, 0.0, new Rotation2d())).getTranslation();
-
-        runVelocity(
-                fieldRelative
-                        ? ChassisSpeeds.fromFieldRelativeSpeeds(
-                        linearVelocity.getX() * getMaxLinearSpeedMetersPerSec(),
-                        linearVelocity.getY() * getMaxLinearSpeedMetersPerSec(),
-                        rotPercent * getMaxAngularSpeedRadPerSec(),
-                        RobotState.getInstance().getRawGyroRotation().minus(fieldOrientationOffset))
-                        : new ChassisSpeeds(
-                        linearVelocity.getX() * getMaxLinearSpeedMetersPerSec(),
-                        linearVelocity.getY() * getMaxLinearSpeedMetersPerSec(),
-                        rotPercent * getMaxAngularSpeedRadPerSec()));
     }
 
     /** Stops the drive. */
@@ -315,6 +345,18 @@ public class Drivetrain extends SubsystemBase {
                 RobotState.getInstance().getRawGyroRotation().minus(AllianceFlipUtil.shouldFlip()
                         ? RobotState.getInstance().getRotation().plus(Rotation2d.fromDegrees(180))
                         : RobotState.getInstance().getRotation());
+    }
+
+    public void setHeadingGoal(Supplier<Rotation2d> headingGoal) {
+        this.headingGoal = headingGoal;
+    }
+
+    public void clearHeadingGoal() {
+        headingGoal = null;
+    }
+
+    public boolean atHeadingGoal() {
+        return headingGoal == null || headingController.atGoal();
     }
 
     /** Orients all modules forward and applies the specified voltage to the drive motors */
@@ -362,16 +404,6 @@ public class Drivetrain extends SubsystemBase {
         return KINEMATICS.toChassisSpeeds(getModuleStates());
     }
 
-    /** Returns the maximum linear speed in meters per sec. */
-    public double getMaxLinearSpeedMetersPerSec() {
-        return MAX_LINEAR_SPEED;
-    }
-
-    /** Returns the maximum angular speed in radians per sec. */
-    public double getMaxAngularSpeedRadPerSec() {
-        return MAX_ANGULAR_SPEED;
-    }
-
     /** Returns an array of module translations. */
     public static Translation2d[] getModuleTranslations() {
         return new Translation2d[]{
@@ -380,6 +412,65 @@ public class Drivetrain extends SubsystemBase {
                 new Translation2d(-TRACK_WIDTH_X / 2.0, TRACK_WIDTH_Y / 2.0),
                 new Translation2d(-TRACK_WIDTH_X / 2.0, -TRACK_WIDTH_Y / 2.0)
         };
+    }
+
+    /** Returns a command that drives the robot based on joystick inputs */
+    public Command teleopDriveCommand(
+            DoubleSupplier controllerX,
+            DoubleSupplier controllerY,
+            DoubleSupplier controllerOmega,
+            BooleanSupplier fieldRelative) {
+        return Commands.run(() -> {
+            double xPercent = controllerX.getAsDouble();
+            double yPercent = controllerY.getAsDouble();
+            double omega = JoystickUtil.smartDeadzone(controllerOmega.getAsDouble(), 0.1);
+
+            double linearMagnitude = JoystickUtil.smartDeadzone(Math.hypot(xPercent, yPercent), 0.1);
+            Rotation2d linearDirection = new Rotation2d(xPercent, yPercent);
+            Translation2d linearVelocity = new Pose2d(new Translation2d(), linearDirection)
+                    .transformBy(new Transform2d(linearMagnitude, 0.0, new Rotation2d())).getTranslation();
+
+            runVelocity(
+                    fieldRelative.getAsBoolean()
+                            ? ChassisSpeeds.fromFieldRelativeSpeeds(
+                            linearVelocity.getX() * MAX_LINEAR_SPEED,
+                            linearVelocity.getY() * MAX_LINEAR_SPEED,
+                            omega * MAX_ANGULAR_SPEED,
+                            RobotState.getInstance().getRawGyroRotation().minus(fieldOrientationOffset))
+                            : new ChassisSpeeds(
+                            linearVelocity.getX() * MAX_LINEAR_SPEED,
+                            linearVelocity.getY() * MAX_LINEAR_SPEED,
+                            omega * MAX_ANGULAR_SPEED));
+        }, this).finallyDo(this::stop);
+    }
+
+    /** Returns a command that overrides all drive control and rotates it to face the specified heading */
+    public Command snapToHeading(Supplier<Rotation2d> heading) {
+        return Commands.runOnce(() -> setHeadingGoal(heading), this)
+                .andThen(Commands.waitUntil(this::atHeadingGoal))
+                .finallyDo(this::clearHeadingGoal);
+    }
+
+    /**
+     * Returns a command that overrides rotational control to keep the drive locked to the specified heading while
+     * running
+     */
+    public Command lockHeading(Supplier<Rotation2d> heading) {
+        return Commands.startEnd(
+                () -> setHeadingGoal(heading),
+                this::clearHeadingGoal);
+    }
+
+    public Command feedforwardCharacterization() {
+        return new FeedForwardCharacterization(
+                this,
+                this::runFFCharacterization,
+                this::getFFCharacterizationVelocity
+        ).finallyDo(this::endCharacterization);
+    }
+
+    public Command wheelRadiusCharacterization(WheelRadiusCharacterization.Direction direction) {
+        return new WheelRadiusCharacterization(this, direction).finallyDo(this::endCharacterization);
     }
 
     public static Drivetrain createReal() {

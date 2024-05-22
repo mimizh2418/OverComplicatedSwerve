@@ -1,17 +1,14 @@
 package org.team1540.swervedrive;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
-import org.team1540.swervedrive.commands.FeedForwardCharacterization;
 import org.team1540.swervedrive.commands.WheelRadiusCharacterization;
 import org.team1540.swervedrive.subsystems.drive.*;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
-import org.team1540.swervedrive.util.JoystickUtil;
 import org.team1540.swervedrive.util.Alert;
 
 /**
@@ -56,15 +53,10 @@ public class RobotContainer {
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
         if (Constants.isTuningMode()) {
-            autoChooser.addOption("Drive FF Characterization",
-                    new FeedForwardCharacterization(
-                            drivetrain,
-                            drivetrain::runFFCharacterization,
-                            drivetrain::getFFCharacterizationVelocity
-                    ).finallyDo(drivetrain::endCharacterization));
-            autoChooser.addOption("Drive Wheel Radius Characterization",
-                    new WheelRadiusCharacterization(drivetrain, WheelRadiusCharacterization.Direction.COUNTER_CLOCKWISE)
-                            .finallyDo(drivetrain::endCharacterization));
+            autoChooser.addOption("Drive FF Characterization", drivetrain.feedforwardCharacterization());
+            autoChooser.addOption(
+                    "Drive Wheel Radius Characterization",
+                    drivetrain.wheelRadiusCharacterization(WheelRadiusCharacterization.Direction.COUNTER_CLOCKWISE));
 
             new Alert("Tuning mode enabled", Alert.AlertType.INFO).set(true);
         }
@@ -81,17 +73,11 @@ public class RobotContainer {
      */
     private void configureButtonBindings() {
         drivetrain.setDefaultCommand(
-                Commands.run(
-                        () -> {
-                            double xPercent = -controller.getLeftY();
-                            double yPercent = -controller.getLeftX();
-                            double linearMagnitude = JoystickUtil.smartDeadzone(Math.hypot(xPercent, yPercent), 0.1);
-                            Rotation2d linearDirection = new Rotation2d(xPercent, yPercent);
-                            double omega = JoystickUtil.smartDeadzone(-controller.getRightX(), 0.1);
-                            drivetrain.drivePercent(linearMagnitude, linearDirection, omega, true);
-                        }, drivetrain
-                )
-        );
+                drivetrain.teleopDriveCommand(
+                        () -> -controller.getLeftY(),
+                        () -> -controller.getLeftX(),
+                        () -> -controller.getRightX(),
+                        () -> true));
         controller.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
         controller.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
     }
