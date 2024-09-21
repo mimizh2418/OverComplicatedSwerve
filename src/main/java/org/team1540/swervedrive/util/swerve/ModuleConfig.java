@@ -20,7 +20,7 @@ public record ModuleConfig(
         String canbus) {
     public TalonFX createDriveMotor(int moduleId) {
         int motorId = moduleId + 30;
-        TalonFX driveMotor = new TalonFX(motorId);
+        TalonFX driveMotor = new TalonFX(motorId, canbus);
 
         TalonFXConfiguration config = new TalonFXConfiguration();
         config.CurrentLimits.StatorCurrentLimitEnable = true;
