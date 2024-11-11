@@ -244,7 +244,7 @@ public class Drivetrain extends SubsystemBase {
         speeds.omegaRadiansPerSecond = gyroInputs.connected
                 ? gyroInputs.yawVelocityRadPerSec
                 : speeds.omegaRadiansPerSecond;
-        RobotState.getInstance().addVelocityData(toTwist2d(speeds));
+        RobotState.getInstance().addVelocityData(speeds);
 
         SwerveModuleState[] setpointStates = new SwerveModuleState[] {
                 new SwerveModuleState(),
@@ -257,11 +257,12 @@ public class Drivetrain extends SubsystemBase {
         switch (currentDriveMode) {
             case FF_CHARACTERIZATION -> {
                 for (Module module : modules) module.runCharacterization(characterizationInput);
-            } case WHEEL_RADIUS_CHARACTERIZATION -> {
-                setpointStates =
-                        KINEMATICS.toSwerveModuleStates(
-                                new ChassisSpeeds(0, 0, characterizationInput));
-            } default -> {
+            }
+            case WHEEL_RADIUS_CHARACTERIZATION ->
+                    setpointStates =
+                            KINEMATICS.toSwerveModuleStates(
+                                    new ChassisSpeeds(0, 0, characterizationInput));
+            default -> {
                 if (headingGoal != null) {
                     Logger.recordOutput("Drivetrain/HeadingGoal", headingGoal.get());
                     desiredSpeeds.omegaRadiansPerSecond =
@@ -380,13 +381,13 @@ public class Drivetrain extends SubsystemBase {
     /** Returns the average velocity of each module in rot/s */
     public double getFFCharacterizationVelocity() {
         double driveVelocityAverage = 0;
-        for (Module module : modules) driveVelocityAverage += module.getCharacterizationVelocity();
+        for (Module module : modules) driveVelocityAverage += module.getFFCharacterizationVelocity();
         return driveVelocityAverage / modules.length;
     }
 
     /** Returns the position of each module in radians */
     public double[] getWheelRadiusCharacterizationPositions() {
-        return Arrays.stream(modules).mapToDouble(Module::getCharacterizationPosition).toArray();
+        return Arrays.stream(modules).mapToDouble(Module::getWheelRadiusCharacterizationPosition).toArray();
     }
 
     /** Returns the module states (turn angles and drive velocities) for all the modules. */

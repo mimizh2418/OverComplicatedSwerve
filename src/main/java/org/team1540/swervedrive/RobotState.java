@@ -4,8 +4,8 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveWheelPositions;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -23,7 +23,7 @@ public class RobotState {
     }
 
     private final SwerveDrivePoseEstimator poseEstimator;
-    private Twist2d robotVelocity = new Twist2d();
+    private ChassisSpeeds robotVelocity = new ChassisSpeeds();
 
     private SwerveModulePosition[] lastModulePositions =
             new SwerveModulePosition[] {
@@ -69,7 +69,7 @@ public class RobotState {
         field.setRobotPose(getRobotPose());
     }
 
-    public void addVelocityData(Twist2d velocity) {
+    public void addVelocityData(ChassisSpeeds velocity) {
         robotVelocity = velocity;
     }
 
@@ -100,14 +100,12 @@ public class RobotState {
     }
 
     @AutoLogOutput(key = "RobotState/RobotVelocity")
-    public Twist2d getRobotVelocity() {
+    public ChassisSpeeds getRobotVelocity() {
         return robotVelocity;
     }
 
     @AutoLogOutput(key = "RobotState/FieldRelativeVelocity")
-    public Twist2d getFieldRelativeVelocity() {
-        Translation2d linearFieldVelocity =
-                new Translation2d(robotVelocity.dx, robotVelocity.dy).rotateBy(getRotation());
-        return new Twist2d(linearFieldVelocity.getX(), linearFieldVelocity.getY(), robotVelocity.dtheta);
+    public ChassisSpeeds getFieldRelativeVelocity() {
+        return ChassisSpeeds.fromRobotRelativeSpeeds(robotVelocity, getRotation());
     }
 }

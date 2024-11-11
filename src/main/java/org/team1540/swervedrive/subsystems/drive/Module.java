@@ -143,12 +143,12 @@ public class Module {
     }
 
     /** Returns the drive velocity in rotations/sec. */
-    public double getCharacterizationVelocity() {
+    public double getFFCharacterizationVelocity() {
         return Units.radiansToRotations(inputs.driveVelocityRadPerSec);
     }
 
     /** Returns the drive position in radians. */
-    public double getCharacterizationPosition() {
+    public double getWheelRadiusCharacterizationPosition() {
         return inputs.drivePositionRads;
     }
 }
