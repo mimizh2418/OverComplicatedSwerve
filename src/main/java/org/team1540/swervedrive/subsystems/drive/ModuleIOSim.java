@@ -6,13 +6,10 @@ import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
-import org.littletonrobotics.junction.Logger;
-import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.util.swerve.ModuleConfig;
-
-import java.util.Arrays;
 
 /**
  * Physics sim implementation of module IO.
@@ -22,6 +19,9 @@ import java.util.Arrays;
  * approximation for the behavior of the module.
  */
 public class ModuleIOSim implements ModuleIO {
+    private static final double simUpdatePeriod = 0.001;
+
+    private final Notifier simNotifier;
 
     private final DCMotorSim driveSim;
     private final DCMotorSim turnSim;
@@ -40,27 +40,33 @@ public class ModuleIOSim implements ModuleIO {
     public ModuleIOSim(ModuleConfig config) {
         driveSim = new DCMotorSim(DCMotor.getKrakenX60Foc(1), config.driveGearRatio(), 0.025);
         turnSim = new DCMotorSim(DCMotor.getFalcon500Foc(1), config.turnGearRatio(), 0.004);
-        drivePID = config.driveVelocityGains().createPIDController();
+        drivePID = config.driveVelocityGains().createPIDController(simUpdatePeriod);
         driveFF = config.driveVelocityGains().createMotorFF();
-        turnPID = config.turnPositionGains().createPIDController();
-        turnPID.enableContinuousInput(-Math.PI, Math.PI);
+        turnPID = config.turnPositionGains().createPIDController(simUpdatePeriod);
+        turnPID.enableContinuousInput(-0.5, 0.5);
+
+        simNotifier = new Notifier(this::updateSimState);
+        simNotifier.startPeriodic(simUpdatePeriod);
     }
 
-    @Override
-    public void updateInputs(ModuleIOInputs inputs) {
+    private void updateSimState() {
         if (isDriveClosedLoop)
             driveAppliedVolts =
-                    MathUtil.clamp(drivePID.calculate(Units.radiansToRotations(inputs.driveVelocityRadPerSec))
+                    MathUtil.clamp(drivePID.calculate(driveSim.getAngularVelocityRPM() / 60)
                             + driveFF.calculate(drivePID.getSetpoint()), -12.0, 12.0);
         if (isTurnClosedLoop)
-            turnAppliedVolts = MathUtil.clamp(turnPID.calculate(inputs.turnPosition.getRadians()), -12.0, 12.0);
+            turnAppliedVolts =
+                    MathUtil.clamp(turnPID.calculate(turnSim.getAngularPositionRotations()), -12.0, 12.0);
 
         driveSim.setInputVoltage(driveAppliedVolts);
         turnSim.setInputVoltage(turnAppliedVolts);
 
-        driveSim.update(Constants.LOOP_PERIOD_SECS);
-        turnSim.update(Constants.LOOP_PERIOD_SECS);
+        driveSim.update(simUpdatePeriod);
+        turnSim.update(simUpdatePeriod);
+    }
 
+    @Override
+    public void updateInputs(ModuleIOInputs inputs) {
         inputs.drivePositionRads = driveSim.getAngularPositionRad();
         inputs.driveVelocityRadPerSec = driveSim.getAngularVelocityRadPerSec();
         inputs.driveAppliedVolts = driveAppliedVolts;
@@ -93,7 +99,7 @@ public class ModuleIOSim implements ModuleIO {
     @Override
     public void setTurnPosition(Rotation2d position) {
         isTurnClosedLoop = true;
-        turnPID.setSetpoint(position.getRadians());
+        turnPID.setSetpoint(position.getRotations());
     }
 
     @Override

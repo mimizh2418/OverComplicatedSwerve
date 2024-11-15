@@ -48,11 +48,11 @@ public class Drivetrain extends SubsystemBase {
     public static final ClosedLoopConfig DRIVE_VELOCITY_GAINS =
             Robot.isReal()
                     ? new ClosedLoopConfig(0.3, 0, 0, 0.258, 0.804)
-                    : new ClosedLoopConfig(0.1, 0.0, 0.0, 0.00666, 0.83397);
+                    : new ClosedLoopConfig(0.3, 0.0, 0.0, 0.00666, 0.83397);
     public static final ClosedLoopConfig TURN_POSITION_GAINS =
             Robot.isReal()
                     ? new ClosedLoopConfig(100, 0, 0.5)
-                    : new ClosedLoopConfig(35.0, 0.0, 0.0);
+                    : new ClosedLoopConfig(100.0, 0.0, 0.0);
 
     // Module configuration
     public static final ModuleConfig MODULE_CONFIG =
@@ -176,7 +176,7 @@ public class Drivetrain extends SubsystemBase {
         AutoBuilder.configureHolonomic(
                 RobotState.getInstance()::getRobotPose,
                 RobotState.getInstance()::resetPose,
-                this::getSpeeds,
+                () -> RobotState.getInstance().getRobotVelocity(),
                 this::runVelocity,
                 new HolonomicPathFollowerConfig(
                         MAX_LINEAR_SPEED, DRIVE_BASE_RADIUS, new ReplanningConfig()),
@@ -240,7 +240,7 @@ public class Drivetrain extends SubsystemBase {
         }
 
         // Update robot velocities
-        ChassisSpeeds speeds = getSpeeds();
+        ChassisSpeeds speeds = KINEMATICS.toChassisSpeeds(getModuleStates());
         speeds.omegaRadiansPerSecond = gyroInputs.connected
                 ? gyroInputs.yawVelocityRadPerSec
                 : speeds.omegaRadiansPerSecond;
@@ -398,11 +398,6 @@ public class Drivetrain extends SubsystemBase {
             states[i] = modules[i].getState();
         }
         return states;
-    }
-
-    @AutoLogOutput(key = "Drivetrain/ChassisSpeeds")
-    public ChassisSpeeds getSpeeds() {
-        return KINEMATICS.toChassisSpeeds(getModuleStates());
     }
 
     /** Returns an array of module translations. */

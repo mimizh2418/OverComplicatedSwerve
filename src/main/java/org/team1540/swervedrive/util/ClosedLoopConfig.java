@@ -65,8 +65,12 @@ public class ClosedLoopConfig {
         this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka, ff.kg, GravityFFType.ELEVATOR);
     }
 
+    public PIDController createPIDController(double loopPeriodSecs) {
+        return new PIDController(kP, kI, kD, loopPeriodSecs);
+    }
+
     public PIDController createPIDController() {
-        return new PIDController(kP, kI, kD, Constants.LOOP_PERIOD_SECS);
+        return createPIDController(Constants.LOOP_PERIOD_SECS);
     }
 
     public SimpleMotorFeedforward createMotorFF() {
@@ -104,9 +108,7 @@ public class ClosedLoopConfig {
             } case ELEVATOR -> {
                 configs.kG = kG;
                 configs.GravityType = GravityTypeValue.Elevator_Static;
-            } case NONE -> {
-                configs.kG = 0;
-            }
+            } case NONE -> configs.kG = 0;
         }
         return configs;
     }
