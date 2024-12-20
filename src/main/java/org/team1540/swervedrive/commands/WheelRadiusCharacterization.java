@@ -4,12 +4,11 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.filter.SlewRateLimiter;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj2.command.Command;
+import java.util.function.DoubleSupplier;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.RobotState;
 import org.team1540.swervedrive.subsystems.drive.Drivetrain;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
-
-import java.util.function.DoubleSupplier;
 
 // NOTE: This file is available at
 // https://github.com/Mechanical-Advantage/RobotCode2024/blob/main/src/main/java/org/littletonrobotics/frc2024/commands/FeedForwardCharacterization.java
@@ -26,6 +25,7 @@ public class WheelRadiusCharacterization extends Command {
         COUNTER_CLOCKWISE(1);
 
         private final int value;
+
         Direction(int value) {
             this.value = value;
         }
@@ -67,7 +67,8 @@ public class WheelRadiusCharacterization extends Command {
 
         // Get yaw and wheel positions
         accumGyroYawRads +=
-                Math.abs(MathUtil.angleModulus(gyroYawRadsSupplier.getAsDouble() - lastGyroYawRads));
+                Math.abs(
+                        MathUtil.angleModulus(gyroYawRadsSupplier.getAsDouble() - lastGyroYawRads));
         lastGyroYawRads = gyroYawRadsSupplier.getAsDouble();
         double averageWheelPosition = 0.0;
         double[] wheelPositions = drivetrain.getWheelRadiusCharacterizationPositions();
@@ -77,8 +78,10 @@ public class WheelRadiusCharacterization extends Command {
         averageWheelPosition /= 4.0;
 
         currentEffectiveWheelRadius = (accumGyroYawRads * driveRadius) / averageWheelPosition;
-        Logger.recordOutput("CharacterizationResults/WheelRadius/DrivePosition", averageWheelPosition);
-        Logger.recordOutput("CharacterizationResults/WheelRadius/AccumGyroYawRads", accumGyroYawRads);
+        Logger.recordOutput(
+                "CharacterizationResults/WheelRadius/DrivePosition", averageWheelPosition);
+        Logger.recordOutput(
+                "CharacterizationResults/WheelRadius/AccumGyroYawRads", accumGyroYawRads);
         Logger.recordOutput(
                 "CharacterizationResults/WheelRadius/CurrentWheelRadiusInches",
                 Units.metersToInches(currentEffectiveWheelRadius));

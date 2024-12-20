@@ -33,8 +33,8 @@ public class PolynomialRegression implements Comparable<PolynomialRegression> {
      * Performs a polynomial reggression on the data points {@code (y[i], x[i])}. Uses n as the name
      * of the predictor variable.
      *
-     * @param x      the values of the predictor variable
-     * @param y      the corresponding values of the response variable
+     * @param x the values of the predictor variable
+     * @param y the corresponding values of the response variable
      * @param degree the degree of the polynomial to fit
      * @throws IllegalArgumentException if the lengths of the two arrays are not equal
      */
@@ -45,9 +45,9 @@ public class PolynomialRegression implements Comparable<PolynomialRegression> {
     /**
      * Performs a polynomial reggression on the data points {@code (y[i], x[i])}.
      *
-     * @param x            the values of the predictor variable
-     * @param y            the corresponding values of the response variable
-     * @param degree       the degree of the polynomial to fit
+     * @param x the values of the predictor variable
+     * @param y the corresponding values of the response variable
+     * @param degree the degree of the polynomial to fit
      * @param variableName the name of the predictor variable
      * @throws IllegalArgumentException if the lengths of the two arrays are not equal
      */
@@ -126,8 +126,8 @@ public class PolynomialRegression implements Comparable<PolynomialRegression> {
     /**
      * Returns the coefficient of determination <em>R</em><sup>2</sup>.
      *
-     * @return the coefficient of determination <em>R</em><sup>2</sup>, which is a real number between
-     * 0 and 1
+     * @return the coefficient of determination <em>R</em><sup>2</sup>, which is a real number
+     *     between 0 and 1
      */
     public double R2() {
         if (sst == 0.0) return 1.0; // constant function
@@ -151,7 +151,7 @@ public class PolynomialRegression implements Comparable<PolynomialRegression> {
      * Returns a string representation of the polynomial regression model.
      *
      * @return a string representation of the polynomial regression model, including the best-fit
-     * polynomial and the coefficient of determination <em>R</em><sup>2</sup>
+     *     polynomial and the coefficient of determination <em>R</em><sup>2</sup>
      */
     public String toString() {
         StringBuilder s = new StringBuilder();
@@ -173,9 +173,7 @@ public class PolynomialRegression implements Comparable<PolynomialRegression> {
         return s.toString().replace("+ -", "- ");
     }
 
-    /**
-     * Compare lexicographically.
-     */
+    /** Compare lexicographically. */
     public int compareTo(PolynomialRegression that) {
         double EPSILON = 1E-5;
         int maxDegree = Math.max(this.degree(), that.degree());

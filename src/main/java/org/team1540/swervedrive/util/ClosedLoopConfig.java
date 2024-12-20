@@ -30,7 +30,14 @@ public class ClosedLoopConfig {
     public final GravityFFType gravityFFType;
 
     public ClosedLoopConfig(
-            double kP, double kI, double kD, double kS, double kV, double kA, double kG, GravityFFType gravityFFType) {
+            double kP,
+            double kI,
+            double kD,
+            double kS,
+            double kV,
+            double kA,
+            double kG,
+            GravityFFType gravityFFType) {
         this.kP = kP;
         this.kI = kI;
         this.kD = kD;
@@ -54,15 +61,48 @@ public class ClosedLoopConfig {
     }
 
     public ClosedLoopConfig(PIDController pid, SimpleMotorFeedforward ff) {
-        this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka);
+        this(pid.getP(), pid.getI(), pid.getD(), ff.getKs(), ff.getKv(), ff.getKa());
     }
 
     public ClosedLoopConfig(PIDController pid, ArmFeedforward ff) {
-        this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka, ff.kg, GravityFFType.ARM);
+        this(
+                pid.getP(),
+                pid.getI(),
+                pid.getD(),
+                ff.getKs(),
+                ff.getKv(),
+                ff.getKa(),
+                ff.getKg(),
+                GravityFFType.ARM);
+    }
+
+    public ClosedLoopConfig(Slot0Configs phoenixConfigs) {
+        this(
+                phoenixConfigs.kP,
+                phoenixConfigs.kI,
+                phoenixConfigs.kD,
+                phoenixConfigs.kS,
+                phoenixConfigs.kV,
+                phoenixConfigs.kA,
+                phoenixConfigs.kG,
+                phoenixConfigs.kG == 0
+                        ? GravityFFType.NONE
+                        : switch (phoenixConfigs.GravityType) {
+                            case Arm_Cosine -> GravityFFType.ARM;
+                            case Elevator_Static -> GravityFFType.ELEVATOR;
+                        });
     }
 
     public ClosedLoopConfig(PIDController pid, ElevatorFeedforward ff) {
-        this(pid.getP(), pid.getI(), pid.getD(), ff.ks, ff.kv, ff.ka, ff.kg, GravityFFType.ELEVATOR);
+        this(
+                pid.getP(),
+                pid.getI(),
+                pid.getD(),
+                ff.getKs(),
+                ff.getKv(),
+                ff.getKa(),
+                ff.getKg(),
+                GravityFFType.ELEVATOR);
     }
 
     public PIDController createPIDController(double loopPeriodSecs) {
@@ -86,7 +126,8 @@ public class ClosedLoopConfig {
 
     public ElevatorFeedforward createElevatorFF() {
         if (gravityFFType != GravityFFType.ELEVATOR) {
-            DriverStation.reportError("Trying to create elevator feedforward with non-elevator config", true);
+            DriverStation.reportError(
+                    "Trying to create elevator feedforward with non-elevator config", true);
         }
         return new ElevatorFeedforward(kS, kV, kA, kG);
     }
@@ -105,10 +146,12 @@ public class ClosedLoopConfig {
             case ARM -> {
                 configs.kG = kG;
                 configs.GravityType = GravityTypeValue.Arm_Cosine;
-            } case ELEVATOR -> {
+            }
+            case ELEVATOR -> {
                 configs.kG = kG;
                 configs.GravityType = GravityTypeValue.Elevator_Static;
-            } case NONE -> configs.kG = 0;
+            }
+            case NONE -> configs.kG = 0;
         }
         return configs;
     }

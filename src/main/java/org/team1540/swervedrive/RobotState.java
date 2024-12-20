@@ -4,9 +4,9 @@ import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
-import edu.wpi.first.math.kinematics.SwerveDriveWheelPositions;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -27,10 +27,10 @@ public class RobotState {
 
     private SwerveModulePosition[] lastModulePositions =
             new SwerveModulePosition[] {
-                    new SwerveModulePosition(),
-                    new SwerveModulePosition(),
-                    new SwerveModulePosition(),
-                    new SwerveModulePosition()
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition(),
+                new SwerveModulePosition()
             };
     private Rotation2d rawGyroRotation = new Rotation2d();
 
@@ -41,11 +41,12 @@ public class RobotState {
                 new SwerveDrivePoseEstimator(
                         Drivetrain.KINEMATICS,
                         new Rotation2d(),
-                        new SwerveModulePosition[]{
-                                new SwerveModulePosition(),
-                                new SwerveModulePosition(),
-                                new SwerveModulePosition(),
-                                new SwerveModulePosition()},
+                        new SwerveModulePosition[] {
+                            new SwerveModulePosition(),
+                            new SwerveModulePosition(),
+                            new SwerveModulePosition(),
+                            new SwerveModulePosition()
+                        },
                         new Pose2d(),
                         VecBuilder.fill(0.1, 0.1, 0.1),
                         VecBuilder.fill(0.5, 0.5, 5.0));
@@ -53,14 +54,10 @@ public class RobotState {
     }
 
     public void addOdometryObservation(
-            SwerveModulePosition[] modulePositions,
-            Rotation2d gyroAngle,
-            double timestamp) {
+            SwerveModulePosition[] modulePositions, Rotation2d gyroAngle, double timestamp) {
         if (gyroAngle != null) rawGyroRotation = gyroAngle;
         else {
-            Twist2d twist = Drivetrain.KINEMATICS.toTwist2d(
-                    new SwerveDriveWheelPositions(lastModulePositions),
-                    new SwerveDriveWheelPositions(modulePositions));
+            Twist2d twist = Drivetrain.KINEMATICS.toTwist2d(lastModulePositions, modulePositions);
             rawGyroRotation = rawGyroRotation.plus(Rotation2d.fromRadians(twist.dtheta));
         }
         lastModulePositions = modulePositions;
@@ -106,6 +103,10 @@ public class RobotState {
 
     @AutoLogOutput(key = "RobotState/FieldRelativeVelocity")
     public ChassisSpeeds getFieldRelativeVelocity() {
-        return ChassisSpeeds.fromRobotRelativeSpeeds(robotVelocity, getRotation());
+        var rotated =
+                new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
+                        .rotateBy(getRotation());
+        return new ChassisSpeeds(
+                rotated.getX(), rotated.getY(), robotVelocity.omegaRadiansPerSecond);
     }
 }

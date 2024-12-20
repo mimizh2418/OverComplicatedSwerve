@@ -3,13 +3,12 @@ package org.team1540.swervedrive.commands;
 import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
-import org.littletonrobotics.junction.Logger;
-import org.team1540.swervedrive.util.math.PolynomialRegression;
-
 import java.util.LinkedList;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.Logger;
+import org.team1540.swervedrive.util.math.PolynomialRegression;
 
 // NOTE: This file is available at
 // https://github.com/Mechanical-Advantage/RobotCode2024/blob/main/src/main/java/org/littletonrobotics/frc2024/commands/FeedForwardCharacterization.java
@@ -26,7 +25,9 @@ public class FeedForwardCharacterization extends Command {
 
     /** Creates a new FeedForwardCharacterization command. */
     public FeedForwardCharacterization(
-            Subsystem subsystem, Consumer<Double> voltageConsumer, Supplier<Double> velocitySupplier) {
+            Subsystem subsystem,
+            Consumer<Double> voltageConsumer,
+            Supplier<Double> velocitySupplier) {
         addRequirements(subsystem);
         this.voltageConsumer = voltageConsumer;
         this.velocitySupplier = velocitySupplier;

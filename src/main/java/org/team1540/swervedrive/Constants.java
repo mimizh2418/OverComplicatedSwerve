@@ -15,6 +15,7 @@ public final class Constants {
     public static final Mode currentMode = Robot.isReal() ? Mode.REAL : simMode;
 
     private static final boolean tuningMode = true;
+
     public static boolean isTuningMode() {
         return !DriverStation.isFMSAttached() && tuningMode;
     }
