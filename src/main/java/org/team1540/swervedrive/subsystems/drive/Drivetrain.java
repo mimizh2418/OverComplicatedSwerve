@@ -4,6 +4,11 @@ import static edu.wpi.first.units.Units.MetersPerSecond;
 import static org.team1540.swervedrive.util.math.EqualsUtil.*;
 import static org.team1540.swervedrive.util.math.GeomUtil.*;
 
+import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.config.ModuleConfig;
+import com.pathplanner.lib.config.PIDConstants;
+import com.pathplanner.lib.config.RobotConfig;
+import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
 import edu.wpi.first.math.geometry.*;
@@ -11,6 +16,7 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
@@ -67,9 +73,7 @@ public class Drivetrain extends SubsystemBase {
         /** Standard drive mode, driving according to desired chassis speeds */
         DEFAULT,
 
-        /**
-         * Characterizing drive motor velocity feedforwards (driving motors at specific voltages)
-         */
+        /** Characterizing drive motor velocity feedforwards */
         FF_CHARACTERIZATION,
 
         /** Spinning in a circle and using gyro rotation to characterize wheel radius */
@@ -86,7 +90,7 @@ public class Drivetrain extends SubsystemBase {
     private Rotation2d fieldOrientationOffset = new Rotation2d();
 
     // Store previous positions and time for filtering odometry data
-    private SwerveModulePosition[] lastModulePositions = null;
+    private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[4];
     private double lastOdometryUpdateTime = 0.0;
 
     @AutoLogOutput(key = "Drivetrain/CurrentDriveMode")
@@ -130,21 +134,34 @@ public class Drivetrain extends SubsystemBase {
         modules[3] = new Module(brModuleIO, Module.MountPosition.BR, TunerConstants.BackRight);
 
         // Start odometry thread
-        PhoenixOdometryThread.getInstance().start();
+        OdometryThread.getInstance().start();
 
-        // Configure AutoBuilder for PathPlanner
-        //        AutoBuilder.configureHolonomic(
-        //                RobotState.getInstance()::getRobotPose,
-        //                RobotState.getInstance()::resetPose,
-        //                () -> RobotState.getInstance().getRobotVelocity(),
-        //                this::runVelocity,
-        //                new HolonomicPathFollowerConfig(
-        //                        MAX_LINEAR_SPEED, DRIVE_BASE_RADIUS, new ReplanningConfig()),
-        //                AllianceFlipUtil::shouldFlip,
-        //                this);
+        AutoBuilder.configure(
+                RobotState.getInstance()::getRobotPose,
+                RobotState.getInstance()::resetPose,
+                RobotState.getInstance()::getRobotVelocity,
+                this::runVelocity,
+                new PPHolonomicDriveController(
+                        new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
+                new RobotConfig(
+                        Constants.ROBOT_MASS_KG,
+                        Constants.ROBOT_MOI_KG_M2,
+                        new ModuleConfig(
+                                TunerConstants.FrontLeft.WheelRadius,
+                                TunerConstants.kSpeedAt12Volts.in(MetersPerSecond),
+                                Constants.WHEEL_COF,
+                                DCMotor.getKrakenX60(1)
+                                        .withReduction(
+                                                TunerConstants.FrontLeft.DriveMotorGearRatio),
+                                TunerConstants.FrontLeft.SlipCurrent,
+                                1),
+                        getModuleTranslations()),
+                AllianceFlipUtil::shouldFlip,
+                this);
+
         Pathfinding.setPathfinder(new LocalADStarAK());
         PathPlannerLogging.setLogActivePathCallback(
-                (activePath) ->
+                activePath ->
                         RobotState.getInstance()
                                 .setActiveTrajectory(activePath.toArray(new Pose2d[0])));
         PathPlannerLogging.setLogTargetPoseCallback(

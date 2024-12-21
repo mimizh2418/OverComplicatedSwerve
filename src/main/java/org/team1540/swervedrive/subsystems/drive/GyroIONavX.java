@@ -13,8 +13,8 @@ public class GyroIONavX implements GyroIO {
     private final Queue<Double> yawTimestampQueue;
 
     public GyroIONavX() {
-        yawTimestampQueue = PhoenixOdometryThread.getInstance().makeTimestampQueue();
-        yawPositionQueue = PhoenixOdometryThread.getInstance().registerSignal(navX::getYaw);
+        yawTimestampQueue = OdometryThread.getInstance().makeTimestampQueue();
+        yawPositionQueue = OdometryThread.getInstance().registerSignal(navX::getYaw);
     }
 
     @Override

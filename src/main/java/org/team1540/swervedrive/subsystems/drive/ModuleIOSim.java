@@ -12,14 +12,14 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Notifier;
-import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
+import java.util.Queue;
 import org.team1540.swervedrive.util.ClosedLoopConfig;
 
 /**
  * Physics sim implementation of module IO.
  *
- * <p>Uses two flywheel sims for the drive and turn motors, with the absolute position initialized
+ * <p>Uses two DC motor sims for the drive and turn motors, with the absolute position initialized
  * to a random value. The flywheel sims are not physically accurate, but provide a decent
  * approximation for the behavior of the module.
  */
@@ -42,6 +42,10 @@ public class ModuleIOSim implements ModuleIO {
             new Rotation2d(Math.random() * 2.0 * Math.PI);
     private double driveAppliedVolts = 0.0;
     private double turnAppliedVolts = 0.0;
+
+    private final Queue<Double> timestampQueue;
+    private final Queue<Double> drivePositionQueue;
+    private final Queue<Double> turnPositionQueue;
 
     private boolean isDriveClosedLoop;
     private boolean isTurnClosedLoop;
@@ -68,6 +72,12 @@ public class ModuleIOSim implements ModuleIO {
         driveFF = driveGains.createMotorFF();
         turnPID = turnGains.createPIDController();
         turnPID.enableContinuousInput(-0.5, 0.5);
+
+        timestampQueue = OdometryThread.getInstance().makeTimestampQueue();
+        drivePositionQueue =
+                OdometryThread.getInstance().registerSignal(driveSim::getAngularPositionRad);
+        turnPositionQueue =
+                OdometryThread.getInstance().registerSignal(turnSim::getAngularPositionRad);
 
         simNotifier = new Notifier(this::updateSimState);
         simNotifier.startPeriodic(simUpdatePeriod);
@@ -109,9 +119,14 @@ public class ModuleIOSim implements ModuleIO {
         inputs.turnAppliedVolts = turnAppliedVolts;
         inputs.turnCurrentAmps = Math.abs(turnSim.getCurrentDrawAmps());
 
-        inputs.odometryTimestamps = new double[] {Timer.getFPGATimestamp()};
-        inputs.odometryDrivePositionsRads = new double[] {inputs.drivePositionRads};
-        inputs.odometryTurnPositions = new Rotation2d[] {inputs.turnPosition};
+        inputs.odometryTimestamps = timestampQueue.stream().mapToDouble(value -> value).toArray();
+        inputs.odometryDrivePositionsRads =
+                drivePositionQueue.stream().mapToDouble(value -> value).toArray();
+        inputs.odometryTurnPositions =
+                turnPositionQueue.stream().map(Rotation2d::fromRadians).toArray(Rotation2d[]::new);
+        timestampQueue.clear();
+        drivePositionQueue.clear();
+        turnPositionQueue.clear();
     }
 
     @Override

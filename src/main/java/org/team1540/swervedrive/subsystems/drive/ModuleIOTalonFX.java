@@ -75,12 +75,11 @@ public class ModuleIOTalonFX implements ModuleIO {
         cancoder = hw.turnEncoder();
 
         // Create timestamp queue
-        timestampQueue = PhoenixOdometryThread.getInstance().makeTimestampQueue();
+        timestampQueue = OdometryThread.getInstance().makeTimestampQueue();
 
         // Create drive status signals
         drivePosition = drive.getPosition();
-        drivePositionQueue =
-                PhoenixOdometryThread.getInstance().registerSignal(drive.getPosition());
+        drivePositionQueue = OdometryThread.getInstance().registerSignal(drive.getPosition());
         driveVelocity = drive.getVelocity();
         driveAppliedVolts = drive.getMotorVoltage();
         driveCurrent = drive.getStatorCurrent();
@@ -89,7 +88,7 @@ public class ModuleIOTalonFX implements ModuleIO {
         // Create turn status signals
         turnAbsolutePosition = cancoder.getAbsolutePosition();
         turnPosition = turn.getPosition();
-        turnPositionQueue = PhoenixOdometryThread.getInstance().registerSignal(turn.getPosition());
+        turnPositionQueue = OdometryThread.getInstance().registerSignal(turn.getPosition());
         turnVelocity = turn.getVelocity();
         turnAppliedVolts = turn.getMotorVoltage();
         turnCurrent = turn.getStatorCurrent();

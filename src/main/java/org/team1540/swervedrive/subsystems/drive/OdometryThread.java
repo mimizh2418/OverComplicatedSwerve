@@ -21,7 +21,7 @@ import org.team1540.swervedrive.generated.TunerConstants;
  * This also allows Phoenix Pro users to benefit from lower latency between devices using CANivore
  * time synchronization.
  */
-public class PhoenixOdometryThread extends Thread {
+public class OdometryThread extends Thread {
     private final Lock signalsLock =
             new ReentrantLock(); // Prevents conflicts when registering signals
     private BaseStatusSignal[] phoenixSignals = new BaseStatusSignal[0];
@@ -31,17 +31,17 @@ public class PhoenixOdometryThread extends Thread {
     private final List<Queue<Double>> timestampQueues = new ArrayList<>();
 
     private static final boolean isCANFD = TunerConstants.kCANBus.isNetworkFD();
-    private static PhoenixOdometryThread instance = null;
+    private static OdometryThread instance = null;
 
-    public static PhoenixOdometryThread getInstance() {
+    public static OdometryThread getInstance() {
         if (instance == null) {
-            instance = new PhoenixOdometryThread();
+            instance = new OdometryThread();
         }
         return instance;
     }
 
-    private PhoenixOdometryThread() {
-        setName("PhoenixOdometryThread");
+    private OdometryThread() {
+        setName("OdometryThread");
         setDaemon(true);
     }
 

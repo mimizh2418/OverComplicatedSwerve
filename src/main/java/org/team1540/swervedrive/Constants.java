@@ -1,5 +1,6 @@
 package org.team1540.swervedrive;
 
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.DriverStation;
 
 /**
@@ -30,4 +31,8 @@ public final class Constants {
     }
 
     public static final double LOOP_PERIOD_SECS = 0.02;
+
+    public static final double ROBOT_MASS_KG = Units.lbsToKilograms(140);
+    public static final double ROBOT_MOI_KG_M2 = 6.883;
+    public static final double WHEEL_COF = 1.0;
 }
