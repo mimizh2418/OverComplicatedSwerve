@@ -53,7 +53,7 @@ public class Module {
 
     public void periodic() {
         io.updateInputs(inputs);
-        Logger.processInputs("Drive/" + mountPosition + "Module", inputs);
+        Logger.processInputs("Drivetrain/" + mountPosition + "Module", inputs);
 
         // Calculate positions for odometry
         int sampleCount = inputs.odometryTimestamps.length; // All signals are sampled together
