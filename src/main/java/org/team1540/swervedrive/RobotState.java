@@ -5,7 +5,6 @@ import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
-import edu.wpi.first.math.geometry.Twist2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -25,6 +24,7 @@ public class RobotState {
     private final SwerveDrivePoseEstimator poseEstimator;
     private ChassisSpeeds robotVelocity = new ChassisSpeeds();
 
+    private Rotation2d lastGyroRotation = new Rotation2d();
     private SwerveModulePosition[] lastModulePositions =
             new SwerveModulePosition[] {
                 new SwerveModulePosition(),
@@ -32,7 +32,6 @@ public class RobotState {
                 new SwerveModulePosition(),
                 new SwerveModulePosition()
             };
-    private Rotation2d rawGyroRotation = new Rotation2d();
 
     private final Field2d field = new Field2d();
 
@@ -55,14 +54,8 @@ public class RobotState {
 
     public void addOdometryObservation(
             SwerveModulePosition[] modulePositions, Rotation2d gyroAngle, double timestamp) {
-        if (gyroAngle != null) rawGyroRotation = gyroAngle;
-        else {
-            Twist2d twist = Drivetrain.KINEMATICS.toTwist2d(lastModulePositions, modulePositions);
-            rawGyroRotation = rawGyroRotation.plus(Rotation2d.fromRadians(twist.dtheta));
-        }
         lastModulePositions = modulePositions;
-
-        poseEstimator.updateWithTime(timestamp, rawGyroRotation, modulePositions);
+        poseEstimator.updateWithTime(timestamp, gyroAngle, modulePositions);
         field.setRobotPose(getRobotPose());
     }
 
@@ -80,7 +73,7 @@ public class RobotState {
     }
 
     public void resetPose(Pose2d newPose) {
-        poseEstimator.resetPosition(rawGyroRotation, lastModulePositions, newPose);
+        poseEstimator.resetPosition(lastGyroRotation, lastModulePositions, newPose);
     }
 
     @AutoLogOutput(key = "RobotState/EstimatedPose")
@@ -90,10 +83,6 @@ public class RobotState {
 
     public Rotation2d getRotation() {
         return getRobotPose().getRotation();
-    }
-
-    public Rotation2d getRawGyroRotation() {
-        return rawGyroRotation;
     }
 
     @AutoLogOutput(key = "RobotState/RobotVelocity")

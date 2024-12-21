@@ -7,7 +7,6 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
-import org.team1540.swervedrive.commands.WheelRadiusCharacterization;
 import org.team1540.swervedrive.subsystems.drive.*;
 
 /**
@@ -54,8 +53,7 @@ public class RobotContainer {
                     "Drive FF Characterization", drivetrain.feedforwardCharacterization());
             autoChooser.addOption(
                     "Drive Wheel Radius Characterization",
-                    drivetrain.wheelRadiusCharacterization(
-                            WheelRadiusCharacterization.Direction.COUNTER_CLOCKWISE));
+                    drivetrain.wheelRadiusCharacterization());
         }
 
         // Configure the button bindings

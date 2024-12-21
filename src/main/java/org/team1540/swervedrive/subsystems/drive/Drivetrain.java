@@ -33,8 +33,7 @@ import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.Robot;
 import org.team1540.swervedrive.RobotState;
-import org.team1540.swervedrive.commands.FeedForwardCharacterization;
-import org.team1540.swervedrive.commands.WheelRadiusCharacterization;
+import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.generated.TunerConstants;
 import org.team1540.swervedrive.util.*;
 import org.team1540.swervedrive.util.swerve.ModuleLimits;
@@ -89,8 +88,9 @@ public class Drivetrain extends SubsystemBase {
 
     private Rotation2d fieldOrientationOffset = new Rotation2d();
 
-    // Store previous positions and time for filtering odometry data
-    private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[4];
+    private Rotation2d rawGyroRotation = new Rotation2d();
+    private SwerveModulePosition[] lastModulePositions =
+            new SwerveModulePosition[4]; // For odometry delta filtering
     private double lastOdometryUpdateTime = 0.0;
 
     @AutoLogOutput(key = "Drivetrain/CurrentDriveMode")
@@ -220,10 +220,14 @@ public class Drivetrain extends SubsystemBase {
             }
             // Accept measurements if delta is not too large
             if (acceptMeasurement) {
-                Rotation2d gyroRotation =
-                        gyroInputs.connected ? gyroInputs.odometryYawPositions[i] : null;
+                if (gyroInputs.connected) rawGyroRotation = gyroInputs.odometryYawPositions[i];
+                else {
+                    Twist2d twist = KINEMATICS.toTwist2d(lastModulePositions, modulePositions);
+                    rawGyroRotation = rawGyroRotation.plus(Rotation2d.fromRadians(twist.dtheta));
+                }
                 RobotState.getInstance()
-                        .addOdometryObservation(modulePositions, gyroRotation, sampleTimestamps[i]);
+                        .addOdometryObservation(
+                                modulePositions, rawGyroRotation, sampleTimestamps[i]);
                 lastModulePositions = modulePositions;
                 lastOdometryUpdateTime = sampleTimestamps[i];
             }
@@ -302,20 +306,18 @@ public class Drivetrain extends SubsystemBase {
 
     /** Zeroes field-oriented drive to the direction the robot is facing */
     public void zeroFieldOrientationManual() {
-        fieldOrientationOffset = RobotState.getInstance().getRawGyroRotation();
+        fieldOrientationOffset = rawGyroRotation;
     }
 
     /** Zeroes field-oriented drive to the field based on the calculated odometry position */
     public void zeroFieldOrientation() {
         fieldOrientationOffset =
-                RobotState.getInstance()
-                        .getRawGyroRotation()
-                        .minus(
-                                AllianceFlipUtil.shouldFlip()
-                                        ? RobotState.getInstance()
-                                                .getRotation()
-                                                .plus(Rotation2d.fromDegrees(180))
-                                        : RobotState.getInstance().getRotation());
+                rawGyroRotation.minus(
+                        AllianceFlipUtil.shouldFlip()
+                                ? RobotState.getInstance()
+                                        .getRotation()
+                                        .plus(Rotation2d.fromDegrees(180))
+                                : RobotState.getInstance().getRotation());
     }
 
     /** Orients all modules forward and applies the specified voltage to the drive motors */
@@ -415,9 +417,7 @@ public class Drivetrain extends SubsystemBase {
                                             omega * getMaxAngularSpeedRadsPerSec());
                             if (fieldRelative.getAsBoolean()) {
                                 speeds.toRobotRelativeSpeeds(
-                                        RobotState.getInstance()
-                                                .getRawGyroRotation()
-                                                .minus(fieldOrientationOffset));
+                                        rawGyroRotation.minus(fieldOrientationOffset));
                             }
                             runVelocity(speeds);
                         },
@@ -426,13 +426,17 @@ public class Drivetrain extends SubsystemBase {
     }
 
     public Command feedforwardCharacterization() {
-        return new FeedForwardCharacterization(
-                        this, this::runFFCharacterization, this::getFFCharacterizationVelocity)
+        return CharacterizationCommands.feedforward(
+                        this::runFFCharacterization, this::getFFCharacterizationVelocity, this)
                 .finallyDo(this::endCharacterization);
     }
 
-    public Command wheelRadiusCharacterization(WheelRadiusCharacterization.Direction direction) {
-        return new WheelRadiusCharacterization(this, direction)
+    public Command wheelRadiusCharacterization() {
+        return CharacterizationCommands.wheelRadius(
+                        this::runWheelRadiusCharacterization,
+                        () -> rawGyroRotation.getRadians(),
+                        this::getWheelRadiusCharacterizationPositions,
+                        this)
                 .finallyDo(this::endCharacterization);
     }
 
