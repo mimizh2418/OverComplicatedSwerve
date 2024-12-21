@@ -49,6 +49,7 @@ public class RobotState {
 
     public void addOdometryObservation(SwerveModulePosition[] modulePositions, Rotation2d gyroAngle, double timestamp) {
         lastModulePositions = modulePositions;
+        lastGyroRotation = gyroAngle;
         poseEstimator.updateWithTime(timestamp, gyroAngle, modulePositions);
         field.setRobotPose(getRobotPose());
     }
