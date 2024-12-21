@@ -22,8 +22,7 @@ import org.team1540.swervedrive.generated.TunerConstants;
  * time synchronization.
  */
 public class OdometryThread extends Thread {
-    private final Lock signalsLock =
-            new ReentrantLock(); // Prevents conflicts when registering signals
+    private final Lock signalsLock = new ReentrantLock(); // Prevents conflicts when registering signals
     private BaseStatusSignal[] phoenixSignals = new BaseStatusSignal[0];
     private final List<DoubleSupplier> genericSignals = new ArrayList<>();
     private final List<Queue<Double>> phoenixQueues = new ArrayList<>();
@@ -104,8 +103,7 @@ public class OdometryThread extends Thread {
             signalsLock.lock();
             try {
                 if (isCANFD && phoenixSignals.length > 0) {
-                    BaseStatusSignal.waitForAll(
-                            2.0 / Drivetrain.ODOMETRY_FREQUENCY, phoenixSignals);
+                    BaseStatusSignal.waitForAll(2.0 / Drivetrain.ODOMETRY_FREQUENCY, phoenixSignals);
                 } else {
                     // "waitForAll" does not support blocking on multiple signals with a bus
                     // that is not CAN FD, regardless of Pro licensing. No reasoning for this

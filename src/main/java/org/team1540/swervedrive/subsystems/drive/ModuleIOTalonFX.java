@@ -37,10 +37,8 @@ public class ModuleIOTalonFX implements ModuleIO {
 
     // Torque-current control requests
     private final TorqueCurrentFOC torqueCurrentRequest = new TorqueCurrentFOC(0);
-    private final PositionTorqueCurrentFOC positionTorqueCurrentRequest =
-            new PositionTorqueCurrentFOC(0.0);
-    private final VelocityTorqueCurrentFOC velocityTorqueCurrentRequest =
-            new VelocityTorqueCurrentFOC(0.0);
+    private final PositionTorqueCurrentFOC positionTorqueCurrentRequest = new PositionTorqueCurrentFOC(0.0);
+    private final VelocityTorqueCurrentFOC velocityTorqueCurrentRequest = new VelocityTorqueCurrentFOC(0.0);
 
     // Timestamp inputs from Phoenix thread
     private final Queue<Double> timestampQueue;
@@ -95,8 +93,7 @@ public class ModuleIOTalonFX implements ModuleIO {
         turnTemp = turn.getDeviceTemp();
 
         // Configure periodic frames
-        BaseStatusSignal.setUpdateFrequencyForAll(
-                Drivetrain.ODOMETRY_FREQUENCY, drivePosition, turnPosition);
+        BaseStatusSignal.setUpdateFrequencyForAll(Drivetrain.ODOMETRY_FREQUENCY, drivePosition, turnPosition);
         BaseStatusSignal.setUpdateFrequencyForAll(
                 50.0,
                 driveVelocity,
@@ -115,11 +112,9 @@ public class ModuleIOTalonFX implements ModuleIO {
     public void updateInputs(ModuleIOInputs inputs) {
         // Refresh all signals
         StatusCode driveStatus =
-                BaseStatusSignal.refreshAll(
-                        drivePosition, driveVelocity, driveAppliedVolts, driveCurrent, driveTemp);
+                BaseStatusSignal.refreshAll(drivePosition, driveVelocity, driveAppliedVolts, driveCurrent, driveTemp);
         StatusCode turnStatus =
-                BaseStatusSignal.refreshAll(
-                        turnPosition, turnVelocity, turnAppliedVolts, turnCurrent, driveTemp);
+                BaseStatusSignal.refreshAll(turnPosition, turnVelocity, turnAppliedVolts, turnCurrent, driveTemp);
         StatusCode turnEncoderStatus = BaseStatusSignal.refreshAll(turnAbsolutePosition);
 
         // Update drive inputs
@@ -132,10 +127,8 @@ public class ModuleIOTalonFX implements ModuleIO {
 
         // Update turn inputs
         inputs.turnConnected = turnConnectedDebounce.calculate(turnStatus.isOK());
-        inputs.turnEncoderConnected =
-                turnEncoderConnectedDebounce.calculate(turnEncoderStatus.isOK());
-        inputs.turnAbsolutePosition =
-                Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble());
+        inputs.turnEncoderConnected = turnEncoderConnectedDebounce.calculate(turnEncoderStatus.isOK());
+        inputs.turnAbsolutePosition = Rotation2d.fromRotations(turnAbsolutePosition.getValueAsDouble());
         inputs.turnPosition = Rotation2d.fromRotations(turnPosition.getValueAsDouble());
         inputs.turnVelocityRadsPerSec = Units.rotationsToRadians(turnVelocity.getValueAsDouble());
         inputs.turnAppliedVolts = turnAppliedVolts.getValueAsDouble();
@@ -143,13 +136,13 @@ public class ModuleIOTalonFX implements ModuleIO {
         inputs.turnTempCelsius = turnTemp.getValueAsDouble();
 
         // Update odometry inputs
-        inputs.odometryTimestamps = timestampQueue.stream().mapToDouble(value -> value).toArray();
-        inputs.odometryDrivePositionsRads =
-                drivePositionQueue.stream().mapToDouble(Units::rotationsToRadians).toArray();
+        inputs.odometryTimestamps =
+                timestampQueue.stream().mapToDouble(value -> value).toArray();
+        inputs.odometryDrivePositionsRads = drivePositionQueue.stream()
+                .mapToDouble(Units::rotationsToRadians)
+                .toArray();
         inputs.odometryTurnPositions =
-                turnPositionQueue.stream()
-                        .map(Rotation2d::fromRotations)
-                        .toArray(Rotation2d[]::new);
+                turnPositionQueue.stream().map(Rotation2d::fromRotations).toArray(Rotation2d[]::new);
         timestampQueue.clear();
         drivePositionQueue.clear();
         turnPositionQueue.clear();
@@ -179,8 +172,7 @@ public class ModuleIOTalonFX implements ModuleIO {
         drive.setControl(
                 switch (constants.DriveMotorClosedLoopOutput) {
                     case Voltage -> velocityVoltageRequest.withVelocity(velocityRotPerSec);
-                    case TorqueCurrentFOC -> velocityTorqueCurrentRequest.withVelocity(
-                            velocityRotPerSec);
+                    case TorqueCurrentFOC -> velocityTorqueCurrentRequest.withVelocity(velocityRotPerSec);
                 });
     }
 
@@ -189,8 +181,7 @@ public class ModuleIOTalonFX implements ModuleIO {
         turn.setControl(
                 switch (constants.SteerMotorClosedLoopOutput) {
                     case Voltage -> positionVoltageRequest.withPosition(rotation.getRotations());
-                    case TorqueCurrentFOC -> positionTorqueCurrentRequest.withPosition(
-                            rotation.getRotations());
+                    case TorqueCurrentFOC -> positionTorqueCurrentRequest.withPosition(rotation.getRotations());
                 });
     }
 }

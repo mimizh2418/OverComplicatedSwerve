@@ -12,7 +12,6 @@ public class PhoenixUtil {
             if (error.isOK()) return;
         }
         DriverStation.reportWarning(
-                "Failed to run a command on a CTRE device after " + maxAttempts + " attempts.",
-                true);
+                "Failed to run a command on a CTRE device after " + maxAttempts + " attempts.", true);
     }
 }

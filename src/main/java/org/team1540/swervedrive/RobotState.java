@@ -25,35 +25,29 @@ public class RobotState {
     private ChassisSpeeds robotVelocity = new ChassisSpeeds();
 
     private Rotation2d lastGyroRotation = new Rotation2d();
-    private SwerveModulePosition[] lastModulePositions =
-            new SwerveModulePosition[] {
-                new SwerveModulePosition(),
-                new SwerveModulePosition(),
-                new SwerveModulePosition(),
-                new SwerveModulePosition()
-            };
+    private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
+        new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
+    };
 
     private final Field2d field = new Field2d();
 
     private RobotState() {
-        poseEstimator =
-                new SwerveDrivePoseEstimator(
-                        Drivetrain.KINEMATICS,
-                        new Rotation2d(),
-                        new SwerveModulePosition[] {
-                            new SwerveModulePosition(),
-                            new SwerveModulePosition(),
-                            new SwerveModulePosition(),
-                            new SwerveModulePosition()
-                        },
-                        new Pose2d(),
-                        VecBuilder.fill(0.1, 0.1, 0.1),
-                        VecBuilder.fill(0.5, 0.5, 5.0));
+        poseEstimator = new SwerveDrivePoseEstimator(
+                Drivetrain.KINEMATICS,
+                new Rotation2d(),
+                new SwerveModulePosition[] {
+                    new SwerveModulePosition(),
+                    new SwerveModulePosition(),
+                    new SwerveModulePosition(),
+                    new SwerveModulePosition()
+                },
+                new Pose2d(),
+                VecBuilder.fill(0.1, 0.1, 0.1),
+                VecBuilder.fill(0.5, 0.5, 5.0));
         SmartDashboard.putData(field);
     }
 
-    public void addOdometryObservation(
-            SwerveModulePosition[] modulePositions, Rotation2d gyroAngle, double timestamp) {
+    public void addOdometryObservation(SwerveModulePosition[] modulePositions, Rotation2d gyroAngle, double timestamp) {
         lastModulePositions = modulePositions;
         poseEstimator.updateWithTime(timestamp, gyroAngle, modulePositions);
         field.setRobotPose(getRobotPose());
@@ -92,10 +86,8 @@ public class RobotState {
 
     @AutoLogOutput(key = "RobotState/FieldRelativeVelocity")
     public ChassisSpeeds getFieldRelativeVelocity() {
-        var rotated =
-                new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
-                        .rotateBy(getRotation());
-        return new ChassisSpeeds(
-                rotated.getX(), rotated.getY(), robotVelocity.omegaRadiansPerSecond);
+        var rotated = new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
+                .rotateBy(getRotation());
+        return new ChassisSpeeds(rotated.getX(), rotated.getY(), robotVelocity.omegaRadiansPerSecond);
     }
 }

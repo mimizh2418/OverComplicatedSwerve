@@ -18,10 +18,9 @@ public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncod
         TalonFX drive = new TalonFX(constants.DriveMotorId, canBus);
         TalonFXConfiguration driveConfig = constants.DriveMotorInitialConfigs;
 
-        driveConfig.MotorOutput.Inverted =
-                constants.DriveMotorInverted
-                        ? InvertedValue.Clockwise_Positive
-                        : InvertedValue.CounterClockwise_Positive;
+        driveConfig.MotorOutput.Inverted = constants.DriveMotorInverted
+                ? InvertedValue.Clockwise_Positive
+                : InvertedValue.CounterClockwise_Positive;
         driveConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
         driveConfig.Feedback.SensorToMechanismRatio = constants.DriveMotorGearRatio;
         driveConfig.TorqueCurrent.PeakForwardTorqueCurrent = constants.SlipCurrent;
@@ -39,8 +38,7 @@ public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncod
         CANcoder turnEncoder = new CANcoder(constants.CANcoderId, canBus);
         CANcoderConfiguration turnEncoderConfig = constants.CANcoderInitialConfigs;
         turnEncoderConfig.MagnetSensor.MagnetOffset = constants.CANcoderOffset;
-        turnEncoderConfig.MagnetSensor.SensorDirection =
-                SensorDirectionValue.CounterClockwise_Positive;
+        turnEncoderConfig.MagnetSensor.SensorDirection = SensorDirectionValue.CounterClockwise_Positive;
         turnEncoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
 
         PhoenixUtil.tryUntilOk(5, () -> turnEncoder.getConfigurator().apply(turnEncoderConfig));
@@ -48,17 +46,14 @@ public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncod
         TalonFX turn = new TalonFX(constants.SteerMotorId, canBus);
         TalonFXConfiguration turnConfig = constants.SteerMotorInitialConfigs;
 
-        turnConfig.MotorOutput.Inverted =
-                constants.SteerMotorInverted
-                        ? InvertedValue.Clockwise_Positive
-                        : InvertedValue.CounterClockwise_Positive;
+        turnConfig.MotorOutput.Inverted = constants.SteerMotorInverted
+                ? InvertedValue.Clockwise_Positive
+                : InvertedValue.CounterClockwise_Positive;
         turnConfig.MotorOutput.NeutralMode = NeutralModeValue.Brake;
-        turnConfig.Feedback.FeedbackSensorSource =
-                switch (constants.FeedbackSource) {
-                    case RemoteCANcoder -> FeedbackSensorSourceValue.RemoteCANcoder;
-                    case FusedCANcoder -> FeedbackSensorSourceValue.FusedCANcoder;
-                    case SyncCANcoder -> FeedbackSensorSourceValue.SyncCANcoder;
-                };
+        turnConfig.Feedback.FeedbackSensorSource = switch (constants.FeedbackSource) {
+            case RemoteCANcoder -> FeedbackSensorSourceValue.RemoteCANcoder;
+            case FusedCANcoder -> FeedbackSensorSourceValue.FusedCANcoder;
+            case SyncCANcoder -> FeedbackSensorSourceValue.SyncCANcoder;};
         turnConfig.Feedback.FeedbackRemoteSensorID = constants.CANcoderId;
         turnConfig.Feedback.RotorToSensorRatio = constants.SteerMotorGearRatio;
         turnConfig.Feedback.SensorToMechanismRatio = 1.0;
@@ -68,14 +63,11 @@ public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncod
         turnConfig.CurrentLimits.SupplyCurrentLimitEnable = true;
         turnConfig.Slot0 = constants.SteerMotorGains;
         turnConfig.MotionMagic.MotionMagicCruiseVelocity =
-                Units.radiansToRotations(DCMotor.getFalcon500Foc(1).freeSpeedRadPerSec)
-                        / constants.SteerMotorGearRatio;
-        turnConfig.MotionMagic.MotionMagicAcceleration =
-                turnConfig.MotionMagic.MotionMagicCruiseVelocity / 0.1;
-        turnConfig.MotionMagic.MotionMagicExpo_kV =
-                constants.SteerMotorGearRatio
-                        * Units.radiansToRotations(DCMotor.getFalcon500Foc(1).freeSpeedRadPerSec)
-                        / 12.0;
+                Units.radiansToRotations(DCMotor.getFalcon500Foc(1).freeSpeedRadPerSec) / constants.SteerMotorGearRatio;
+        turnConfig.MotionMagic.MotionMagicAcceleration = turnConfig.MotionMagic.MotionMagicCruiseVelocity / 0.1;
+        turnConfig.MotionMagic.MotionMagicExpo_kV = constants.SteerMotorGearRatio
+                * Units.radiansToRotations(DCMotor.getFalcon500Foc(1).freeSpeedRadPerSec)
+                / 12.0;
         turnConfig.MotionMagic.MotionMagicExpo_kA = 0.1;
         turnConfig.ClosedLoopGeneral.ContinuousWrap = true;
 

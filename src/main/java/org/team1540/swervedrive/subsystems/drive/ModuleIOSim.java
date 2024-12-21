@@ -38,8 +38,7 @@ public class ModuleIOSim implements ModuleIO {
     private final SimpleMotorFeedforward driveFF;
     private final PIDController turnPID;
 
-    private final Rotation2d turnAbsoluteInitPosition =
-            new Rotation2d(Math.random() * 2.0 * Math.PI);
+    private final Rotation2d turnAbsoluteInitPosition = new Rotation2d(Math.random() * 2.0 * Math.PI);
     private double driveAppliedVolts = 0.0;
     private double turnAppliedVolts = 0.0;
 
@@ -52,20 +51,13 @@ public class ModuleIOSim implements ModuleIO {
 
     public ModuleIOSim(SwerveModuleConstants constants) {
         // Create drive and turn sim models
-        driveSim =
-                new DCMotorSim(
-                        LinearSystemId.createDCMotorSystem(
-                                DRIVE_GEARBOX,
-                                constants.DriveInertia,
-                                constants.DriveMotorGearRatio),
-                        DRIVE_GEARBOX);
-        turnSim =
-                new DCMotorSim(
-                        LinearSystemId.createDCMotorSystem(
-                                TURN_GEARBOX,
-                                constants.SteerInertia,
-                                constants.SteerMotorGearRatio),
-                        TURN_GEARBOX);
+        driveSim = new DCMotorSim(
+                LinearSystemId.createDCMotorSystem(
+                        DRIVE_GEARBOX, constants.DriveInertia, constants.DriveMotorGearRatio),
+                DRIVE_GEARBOX);
+        turnSim = new DCMotorSim(
+                LinearSystemId.createDCMotorSystem(TURN_GEARBOX, constants.SteerInertia, constants.SteerMotorGearRatio),
+                TURN_GEARBOX);
         var driveGains = new ClosedLoopConfig(constants.DriveMotorGains);
         var turnGains = new ClosedLoopConfig(constants.SteerMotorGains);
         drivePID = driveGains.createPIDController();
@@ -74,10 +66,8 @@ public class ModuleIOSim implements ModuleIO {
         turnPID.enableContinuousInput(-0.5, 0.5);
 
         timestampQueue = OdometryThread.getInstance().makeTimestampQueue();
-        drivePositionQueue =
-                OdometryThread.getInstance().registerSignal(driveSim::getAngularPositionRad);
-        turnPositionQueue =
-                OdometryThread.getInstance().registerSignal(turnSim::getAngularPositionRad);
+        drivePositionQueue = OdometryThread.getInstance().registerSignal(driveSim::getAngularPositionRad);
+        turnPositionQueue = OdometryThread.getInstance().registerSignal(turnSim::getAngularPositionRad);
 
         simNotifier = new Notifier(this::updateSimState);
         simNotifier.startPeriodic(simUpdatePeriod);
@@ -85,18 +75,14 @@ public class ModuleIOSim implements ModuleIO {
 
     private void updateSimState() {
         if (isDriveClosedLoop)
-            driveAppliedVolts =
-                    MathUtil.clamp(
-                            drivePID.calculate(driveSim.getAngularVelocityRPM() / 60)
-                                    + driveFF.calculate(
-                                                    RotationsPerSecond.of(drivePID.getSetpoint()))
-                                            .in(Volts),
-                            -12.0,
-                            12.0);
+            driveAppliedVolts = MathUtil.clamp(
+                    drivePID.calculate(driveSim.getAngularVelocityRPM() / 60)
+                            + driveFF.calculate(RotationsPerSecond.of(drivePID.getSetpoint()))
+                                    .in(Volts),
+                    -12.0,
+                    12.0);
         if (isTurnClosedLoop)
-            turnAppliedVolts =
-                    MathUtil.clamp(
-                            turnPID.calculate(turnSim.getAngularPositionRotations()), -12.0, 12.0);
+            turnAppliedVolts = MathUtil.clamp(turnPID.calculate(turnSim.getAngularPositionRotations()), -12.0, 12.0);
 
         driveSim.setInputVoltage(driveAppliedVolts);
         turnSim.setInputVoltage(turnAppliedVolts);
@@ -115,14 +101,14 @@ public class ModuleIOSim implements ModuleIO {
 
         inputs.turnConnected = true;
         inputs.turnEncoderConnected = true;
-        inputs.turnAbsolutePosition =
-                new Rotation2d(turnSim.getAngularPositionRad()).plus(turnAbsoluteInitPosition);
+        inputs.turnAbsolutePosition = new Rotation2d(turnSim.getAngularPositionRad()).plus(turnAbsoluteInitPosition);
         inputs.turnPosition = new Rotation2d(turnSim.getAngularPositionRad());
         inputs.turnVelocityRadsPerSec = turnSim.getAngularVelocityRadPerSec();
         inputs.turnAppliedVolts = turnAppliedVolts;
         inputs.turnCurrentAmps = Math.abs(turnSim.getCurrentDrawAmps());
 
-        inputs.odometryTimestamps = timestampQueue.stream().mapToDouble(value -> value).toArray();
+        inputs.odometryTimestamps =
+                timestampQueue.stream().mapToDouble(value -> value).toArray();
         inputs.odometryDrivePositionsRads =
                 drivePositionQueue.stream().mapToDouble(value -> value).toArray();
         inputs.odometryTurnPositions =

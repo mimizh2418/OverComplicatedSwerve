@@ -100,11 +100,11 @@ public class LoggedTunableNumber implements DoubleSupplier {
      *     numbers in order inputted in method
      * @param tunableNumbers All tunable numbers to check
      */
-    public static void ifChanged(
-            int id, Consumer<double[]> action, LoggedTunableNumber... tunableNumbers) {
+    public static void ifChanged(int id, Consumer<double[]> action, LoggedTunableNumber... tunableNumbers) {
         if (Arrays.stream(tunableNumbers).anyMatch(tunableNumber -> tunableNumber.hasChanged(id))) {
-            action.accept(
-                    Arrays.stream(tunableNumbers).mapToDouble(LoggedTunableNumber::get).toArray());
+            action.accept(Arrays.stream(tunableNumbers)
+                    .mapToDouble(LoggedTunableNumber::get)
+                    .toArray());
         }
     }
 

@@ -24,69 +24,49 @@ public class CharacterizationCommands {
             new LoggedTunableNumber("Characterization/Feedforward/RampVoltsPerSec", 0.1);
 
     public static Command feedforward(
-            DoubleConsumer voltageConsumer,
-            DoubleSupplier velocitySupplier,
-            Subsystem... requirements) {
+            DoubleConsumer voltageConsumer, DoubleSupplier velocitySupplier, Subsystem... requirements) {
         List<Double> velocitySamples = new LinkedList<>();
         List<Double> voltageSamples = new LinkedList<>();
         Timer timer = new Timer();
 
-        var command =
-                Commands.sequence(
-                        Commands.runOnce(
-                                () -> {
-                                    velocitySamples.clear();
-                                    voltageSamples.clear();
-                                }),
-                        Commands.run(() -> voltageConsumer.accept(0.0))
-                                .withTimeout(CHAR_START_DELAY_SECS),
-                        Commands.runOnce(timer::restart),
-                        Commands.run(
-                                        () -> {
-                                            double voltage = timer.get() * ffRampVoltsPerSec.get();
-                                            voltageConsumer.accept(voltage);
-                                            velocitySamples.add(velocitySupplier.getAsDouble());
-                                            voltageSamples.add(voltage);
-                                        })
-                                .finallyDo(
-                                        () -> {
-                                            if (velocitySamples.isEmpty()
-                                                    || voltageSamples.isEmpty()) {
-                                                return;
-                                            }
+        var command = Commands.sequence(
+                Commands.runOnce(() -> {
+                    velocitySamples.clear();
+                    voltageSamples.clear();
+                }),
+                Commands.run(() -> voltageConsumer.accept(0.0)).withTimeout(CHAR_START_DELAY_SECS),
+                Commands.runOnce(timer::restart),
+                Commands.run(() -> {
+                            double voltage = timer.get() * ffRampVoltsPerSec.get();
+                            voltageConsumer.accept(voltage);
+                            velocitySamples.add(velocitySupplier.getAsDouble());
+                            voltageSamples.add(voltage);
+                        })
+                        .finallyDo(() -> {
+                            if (velocitySamples.isEmpty() || voltageSamples.isEmpty()) {
+                                return;
+                            }
 
-                                            PolynomialRegression regression =
-                                                    new PolynomialRegression(
-                                                            velocitySamples.stream()
-                                                                    .mapToDouble(
-                                                                            Double::doubleValue)
-                                                                    .toArray(),
-                                                            voltageSamples.stream()
-                                                                    .mapToDouble(
-                                                                            Double::doubleValue)
-                                                                    .toArray(),
-                                                            1);
+                            PolynomialRegression regression = new PolynomialRegression(
+                                    velocitySamples.stream()
+                                            .mapToDouble(Double::doubleValue)
+                                            .toArray(),
+                                    voltageSamples.stream()
+                                            .mapToDouble(Double::doubleValue)
+                                            .toArray(),
+                                    1);
 
-                                            System.out.println(
-                                                    "********** Feedforward Characterization Results **********");
-                                            System.out.println("\tCount=" + velocitySamples.size());
-                                            System.out.printf("\tR2=%.5f%n", regression.R2());
-                                            System.out.printf("\tkS=%.5f%n", regression.beta(0));
-                                            System.out.printf("\tkV=%.5f%n", regression.beta(1));
+                            System.out.println("********** Feedforward Characterization Results **********");
+                            System.out.println("\tCount=" + velocitySamples.size());
+                            System.out.printf("\tR2=%.5f%n", regression.R2());
+                            System.out.printf("\tkS=%.5f%n", regression.beta(0));
+                            System.out.printf("\tkV=%.5f%n", regression.beta(1));
 
-                                            Logger.recordOutput(
-                                                    "Characterization/Feedforward/SampleCount",
-                                                    velocitySamples.size());
-                                            Logger.recordOutput(
-                                                    "Characterization/Feedforward/R2",
-                                                    regression.R2());
-                                            Logger.recordOutput(
-                                                    "Characterization/Feedforward/kS",
-                                                    regression.beta(0));
-                                            Logger.recordOutput(
-                                                    "Characterization/Feedforward/kV",
-                                                    regression.beta(1));
-                                        }));
+                            Logger.recordOutput("Characterization/Feedforward/SampleCount", velocitySamples.size());
+                            Logger.recordOutput("Characterization/Feedforward/R2", regression.R2());
+                            Logger.recordOutput("Characterization/Feedforward/kS", regression.beta(0));
+                            Logger.recordOutput("Characterization/Feedforward/kV", regression.beta(1));
+                        }));
         command.addRequirements(requirements);
         return command;
     }
@@ -103,75 +83,45 @@ public class CharacterizationCommands {
             Subsystem... requirements) {
         WheelRadiusCharacterizationState state = new WheelRadiusCharacterizationState();
 
-        var command =
-                Commands.parallel(
-                                Commands.sequence(
-                                        Commands.runOnce(
-                                                () ->
-                                                        state.limiter =
-                                                                new SlewRateLimiter(
-                                                                        wheelRadiusRampRate.get())),
-                                        Commands.run(
-                                                () -> {
-                                                    double omega =
-                                                            state.limiter.calculate(
-                                                                    wheelRadiusSpeedRadsPerSec
-                                                                            .get());
-                                                    omegaConsumer.accept(omega);
-                                                })),
-                                Commands.sequence(
-                                        Commands.waitSeconds(CHAR_START_DELAY_SECS),
-                                        Commands.runOnce(
-                                                () -> {
-                                                    state.startPositions =
-                                                            wheelPositionsRadsSupplier.get();
-                                                    state.lastYawRads =
-                                                            gyroYawRadsSupplier.getAsDouble();
-                                                    state.accumGyroYawRads = 0.0;
-                                                }),
-                                        Commands.run(
-                                                () -> {
-                                                    double rotation =
-                                                            gyroYawRadsSupplier.getAsDouble();
-                                                    state.accumGyroYawRads +=
-                                                            Math.abs(
-                                                                    MathUtil.angleModulus(
-                                                                            rotation
-                                                                                    - state.lastYawRads));
-                                                    state.lastYawRads = rotation;
-                                                })))
-                        .finallyDo(
-                                () -> {
-                                    double[] positions = wheelPositionsRadsSupplier.get();
-                                    double wheelDelta = 0.0;
-                                    for (int i = 0; i < 4; i++) {
-                                        wheelDelta +=
-                                                Math.abs(positions[i] - state.startPositions[i]);
-                                    }
-                                    wheelDelta /= 4.0;
-                                    double effectiveRadius =
-                                            (state.accumGyroYawRads * Drivetrain.DRIVE_BASE_RADIUS)
-                                                    / wheelDelta;
-                                    effectiveRadius = Units.metersToInches(effectiveRadius);
+        var command = Commands.parallel(
+                        Commands.sequence(
+                                Commands.runOnce(() -> state.limiter = new SlewRateLimiter(wheelRadiusRampRate.get())),
+                                Commands.run(() -> {
+                                    double omega = state.limiter.calculate(wheelRadiusSpeedRadsPerSec.get());
+                                    omegaConsumer.accept(omega);
+                                })),
+                        Commands.sequence(
+                                Commands.waitSeconds(CHAR_START_DELAY_SECS),
+                                Commands.runOnce(() -> {
+                                    state.startPositions = wheelPositionsRadsSupplier.get();
+                                    state.lastYawRads = gyroYawRadsSupplier.getAsDouble();
+                                    state.accumGyroYawRads = 0.0;
+                                }),
+                                Commands.run(() -> {
+                                    double rotation = gyroYawRadsSupplier.getAsDouble();
+                                    state.accumGyroYawRads +=
+                                            Math.abs(MathUtil.angleModulus(rotation - state.lastYawRads));
+                                    state.lastYawRads = rotation;
+                                })))
+                .finallyDo(() -> {
+                    double[] positions = wheelPositionsRadsSupplier.get();
+                    double wheelDelta = 0.0;
+                    for (int i = 0; i < 4; i++) {
+                        wheelDelta += Math.abs(positions[i] - state.startPositions[i]);
+                    }
+                    wheelDelta /= 4.0;
+                    double effectiveRadius = (state.accumGyroYawRads * Drivetrain.DRIVE_BASE_RADIUS) / wheelDelta;
+                    effectiveRadius = Units.metersToInches(effectiveRadius);
 
-                                    System.out.println(
-                                            "********** Wheel Radius Characterization Results **********");
-                                    System.out.println("\tAvg Wheel Delta: " + wheelDelta);
-                                    System.out.println(
-                                            "\tAccum Gyro Yaw: " + state.accumGyroYawRads);
-                                    System.out.println(
-                                            "\tEffective Radius (inches): " + effectiveRadius);
+                    System.out.println("********** Wheel Radius Characterization Results **********");
+                    System.out.println("\tAvg Wheel Delta: " + wheelDelta);
+                    System.out.println("\tAccum Gyro Yaw: " + state.accumGyroYawRads);
+                    System.out.println("\tEffective Radius (inches): " + effectiveRadius);
 
-                                    Logger.recordOutput(
-                                            "Characterization/WheelRadius/AvgWheelDelta",
-                                            wheelDelta);
-                                    Logger.recordOutput(
-                                            "Characterization/WheelRadius/AccumGyroYaw",
-                                            state.accumGyroYawRads);
-                                    Logger.recordOutput(
-                                            "Characterization/WheelRadius/EffectiveRadiusInches",
-                                            effectiveRadius);
-                                });
+                    Logger.recordOutput("Characterization/WheelRadius/AvgWheelDelta", wheelDelta);
+                    Logger.recordOutput("Characterization/WheelRadius/AccumGyroYaw", state.accumGyroYawRads);
+                    Logger.recordOutput("Characterization/WheelRadius/EffectiveRadiusInches", effectiveRadius);
+                });
         command.addRequirements(requirements);
         return command;
     }

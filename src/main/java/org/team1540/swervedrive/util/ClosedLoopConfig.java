@@ -30,14 +30,7 @@ public class ClosedLoopConfig {
     public final GravityFFType gravityFFType;
 
     public ClosedLoopConfig(
-            double kP,
-            double kI,
-            double kD,
-            double kS,
-            double kV,
-            double kA,
-            double kG,
-            GravityFFType gravityFFType) {
+            double kP, double kI, double kD, double kS, double kV, double kA, double kG, GravityFFType gravityFFType) {
         this.kP = kP;
         this.kI = kI;
         this.kD = kD;
@@ -65,15 +58,7 @@ public class ClosedLoopConfig {
     }
 
     public ClosedLoopConfig(PIDController pid, ArmFeedforward ff) {
-        this(
-                pid.getP(),
-                pid.getI(),
-                pid.getD(),
-                ff.getKs(),
-                ff.getKv(),
-                ff.getKa(),
-                ff.getKg(),
-                GravityFFType.ARM);
+        this(pid.getP(), pid.getI(), pid.getD(), ff.getKs(), ff.getKv(), ff.getKa(), ff.getKg(), GravityFFType.ARM);
     }
 
     public ClosedLoopConfig(Slot0Configs phoenixConfigs) {
@@ -126,8 +111,7 @@ public class ClosedLoopConfig {
 
     public ElevatorFeedforward createElevatorFF() {
         if (gravityFFType != GravityFFType.ELEVATOR) {
-            DriverStation.reportError(
-                    "Trying to create elevator feedforward with non-elevator config", true);
+            DriverStation.reportError("Trying to create elevator feedforward with non-elevator config", true);
         }
         return new ElevatorFeedforward(kS, kV, kA, kG);
     }

@@ -49,11 +49,8 @@ public class RobotContainer {
         autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
 
         if (Constants.isTuningMode()) {
-            autoChooser.addOption(
-                    "Drive FF Characterization", drivetrain.feedforwardCharacterization());
-            autoChooser.addOption(
-                    "Drive Wheel Radius Characterization",
-                    drivetrain.wheelRadiusCharacterization());
+            autoChooser.addOption("Drive FF Characterization", drivetrain.feedforwardCharacterization());
+            autoChooser.addOption("Drive Wheel Radius Characterization", drivetrain.wheelRadiusCharacterization());
         }
 
         // Configure the button bindings
@@ -67,12 +64,8 @@ public class RobotContainer {
      * edu.wpi.first.wpilibj2.command.button.JoystickButton}.
      */
     private void configureButtonBindings() {
-        drivetrain.setDefaultCommand(
-                drivetrain.teleopDriveCommand(
-                        () -> -controller.getLeftY(),
-                        () -> -controller.getLeftX(),
-                        () -> -controller.getRightX(),
-                        () -> true));
+        drivetrain.setDefaultCommand(drivetrain.teleopDriveCommand(
+                () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX(), () -> true));
         controller.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
         controller.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
     }

@@ -12,8 +12,6 @@ public class EqualsUtil {
     }
 
     public static boolean epsilonEquals(Twist2d a, Twist2d b) {
-        return epsilonEquals(a.dx, b.dx)
-                && epsilonEquals(a.dy, b.dy)
-                && epsilonEquals(a.dtheta, b.dtheta);
+        return epsilonEquals(a.dx, b.dx) && epsilonEquals(a.dy, b.dy) && epsilonEquals(a.dtheta, b.dtheta);
     }
 }

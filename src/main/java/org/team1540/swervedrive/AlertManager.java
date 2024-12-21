@@ -36,17 +36,12 @@ public class AlertManager {
     private int lastCanivoreREC = 0;
 
     private final Alert canErrorAlert =
-            new Alert(
-                    "RIO CAN bus error, robot functionality may be severely limited",
-                    Alert.AlertType.kError);
+            new Alert("RIO CAN bus error, robot functionality may be severely limited", Alert.AlertType.kError);
     private final Alert canivoreErrorAlert =
-            new Alert(
-                    "Swerve CAN bus error, drive functionality may be severely limited",
-                    Alert.AlertType.kError);
+            new Alert("Swerve CAN bus error, drive functionality may be severely limited", Alert.AlertType.kError);
     private final Alert lowBatteryAlert =
             new Alert("Battery voltage is low, consider replacing it", Alert.AlertType.kWarning);
-    private final Alert tuningModeAlert =
-            new Alert("Tuning mode is enabled", Alert.AlertType.kInfo);
+    private final Alert tuningModeAlert = new Alert("Tuning mode is enabled", Alert.AlertType.kInfo);
 
     public void start() {
         disabledTimer.restart();
@@ -59,8 +54,7 @@ public class AlertManager {
     public void update() {
         // Update timers
         CANStatus rioCanStatus = RobotController.getCANStatus();
-        if (rioCanStatus.transmitErrorCount > lastRioCanTEC
-                || rioCanStatus.receiveErrorCount > lastRioCanREC) {
+        if (rioCanStatus.transmitErrorCount > lastRioCanTEC || rioCanStatus.receiveErrorCount > lastRioCanREC) {
             canErrorTimer.reset();
         }
         lastRioCanTEC = rioCanStatus.transmitErrorCount;
@@ -77,14 +71,11 @@ public class AlertManager {
 
         if (DriverStation.isEnabled()) disabledTimer.reset();
 
-        canErrorAlert.set(
-                !canErrorTimer.hasElapsed(canErrorTimeThreshold)
-                        && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
-        canivoreErrorAlert.set(
-                !canivoreErrorTimer.hasElapsed(canErrorTimeThreshold)
-                        && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
-        lowBatteryAlert.set(
-                RobotController.getBatteryVoltage() < lowBatteryVoltageThreshold
-                        && disabledTimer.hasElapsed(lowBatteryDisableTime));
+        canErrorAlert.set(!canErrorTimer.hasElapsed(canErrorTimeThreshold)
+                && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
+        canivoreErrorAlert.set(!canivoreErrorTimer.hasElapsed(canErrorTimeThreshold)
+                && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
+        lowBatteryAlert.set(RobotController.getBatteryVoltage() < lowBatteryVoltageThreshold
+                && disabledTimer.hasElapsed(lowBatteryDisableTime));
     }
 }

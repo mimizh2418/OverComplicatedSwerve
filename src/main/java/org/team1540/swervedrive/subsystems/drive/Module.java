@@ -38,17 +38,10 @@ public class Module {
         this.mountPosition = mountPosition;
         this.constants = constants;
         driveDisconnectedAlert =
-                new Alert(
-                        "Disconnected drive motor on " + mountPosition + " module.",
-                        AlertType.kError);
-        turnDisconnectedAlert =
-                new Alert(
-                        "Disconnected turn motor on " + mountPosition + " module.",
-                        AlertType.kError);
+                new Alert("Disconnected drive motor on " + mountPosition + " module.", AlertType.kError);
+        turnDisconnectedAlert = new Alert("Disconnected turn motor on " + mountPosition + " module.", AlertType.kError);
         turnEncoderDisconnectedAlert =
-                new Alert(
-                        "Disconnected turn encoder on " + mountPosition + " module.",
-                        AlertType.kError);
+                new Alert("Disconnected turn encoder on " + mountPosition + " module.", AlertType.kError);
     }
 
     public void periodic() {

@@ -47,8 +47,7 @@ public class GeomUtil {
 
     public static Pose2d inverse(Pose2d pose) {
         Rotation2d rotationInverse = pose.getRotation().unaryMinus();
-        return new Pose2d(
-                pose.getTranslation().unaryMinus().rotateBy(rotationInverse), rotationInverse);
+        return new Pose2d(pose.getTranslation().unaryMinus().rotateBy(rotationInverse), rotationInverse);
     }
 
     /**
@@ -121,8 +120,7 @@ public class GeomUtil {
      * @return The resulting translation
      */
     public static Twist2d toTwist2d(ChassisSpeeds speeds) {
-        return new Twist2d(
-                speeds.vxMetersPerSecond, speeds.vyMetersPerSecond, speeds.omegaRadiansPerSecond);
+        return new Twist2d(speeds.vxMetersPerSecond, speeds.vyMetersPerSecond, speeds.omegaRadiansPerSecond);
     }
 
     /**
