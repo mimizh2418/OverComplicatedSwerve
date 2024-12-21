@@ -5,7 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
 import java.util.function.DoubleSupplier;
-import org.littletonrobotics.junction.networktables.LoggedDashboardNumber;
+import org.littletonrobotics.junction.networktables.LoggedNetworkNumber;
 import org.team1540.swervedrive.Constants;
 
 // NOTE this file is available at:
@@ -21,7 +21,7 @@ public class LoggedTunableNumber implements DoubleSupplier {
     private final String key;
     private boolean hasDefault = false;
     private double defaultValue;
-    private LoggedDashboardNumber dashboardNumber;
+    private LoggedNetworkNumber dashboardNumber;
     private final Map<Integer, Double> lastHasChangedValues = new HashMap<>();
 
     /**
@@ -54,7 +54,7 @@ public class LoggedTunableNumber implements DoubleSupplier {
             hasDefault = true;
             this.defaultValue = defaultValue;
             if (Constants.isTuningMode()) {
-                dashboardNumber = new LoggedDashboardNumber(key, defaultValue);
+                dashboardNumber = new LoggedNetworkNumber("SmartDashboard/" + key, defaultValue);
             }
         }
     }
