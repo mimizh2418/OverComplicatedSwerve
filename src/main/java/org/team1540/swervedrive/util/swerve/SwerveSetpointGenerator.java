@@ -27,9 +27,9 @@ public class SwerveSetpointGenerator {
     private final SwerveDriveKinematics mKinematics;
     private final Translation2d[] moduleLocations;
 
-    public SwerveSetpointGenerator(final SwerveDriveKinematics kinematics, final Translation2d[] moduleLocations) {
+    public SwerveSetpointGenerator(final SwerveDriveKinematics kinematics) {
         this.mKinematics = kinematics;
-        this.moduleLocations = moduleLocations;
+        this.moduleLocations = kinematics.getModules();
     }
 
     /**
