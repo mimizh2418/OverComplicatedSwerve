@@ -1,5 +1,6 @@
 package org.team1540.swervedrive;
 
+import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import org.littletonrobotics.junction.LogFileUtil;
@@ -8,6 +9,7 @@ import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.NT4Publisher;
 import org.littletonrobotics.junction.wpilog.WPILOGReader;
 import org.littletonrobotics.junction.wpilog.WPILOGWriter;
+import org.team1540.swervedrive.generated.BuildConstants;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -17,14 +19,13 @@ import org.littletonrobotics.junction.wpilog.WPILOGWriter;
  */
 public class Robot extends LoggedRobot {
     private Command autonomousCommand;
-    private RobotContainer robotContainer;
+    private final RobotContainer robotContainer;
 
     /**
      * This function is run when the robot is first started up and should be used for any
      * initialization code.
      */
-    @Override
-    public void robotInit() {
+    public Robot() {
         // Record metadata
         Logger.recordMetadata("ProjectName", BuildConstants.MAVEN_NAME);
         Logger.recordMetadata("BuildDate", BuildConstants.BUILD_DATE);
@@ -42,6 +43,7 @@ public class Robot extends LoggedRobot {
                 Logger.recordMetadata("GitDirty", "Unknown");
                 break;
         }
+        Logger.recordMetadata("TuningMode", Constants.isTuningMode() ? "on" : "off");
 
         // Set up data receivers & replay source
         switch (Constants.currentMode) {
@@ -82,6 +84,9 @@ public class Robot extends LoggedRobot {
     /** This function is called periodically during all modes. */
     @Override
     public void robotPeriodic() {
+        // Switch main robot thread to high priority to improve loop timing
+        Threads.setCurrentThreadPriority(true, 99);
+
         // Runs the Scheduler. This is responsible for polling buttons, adding
         // newly-scheduled commands, running already-scheduled commands, removing
         // finished or interrupted commands, and running subsystem periodic() methods.
@@ -91,6 +96,9 @@ public class Robot extends LoggedRobot {
 
         // Update alerts
         AlertManager.getInstance().update();
+
+        // Return to normal thread priority
+        Threads.setCurrentThreadPriority(false, 10);
     }
 
     /** This function is called once when the robot is disabled. */
