@@ -2,10 +2,10 @@ package org.team1540.swervedrive;
 
 import com.ctre.phoenix6.CANBus;
 import edu.wpi.first.hal.can.CANStatus;
+import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.RobotController;
-import edu.wpi.first.wpilibj.Timer;
 import org.team1540.swervedrive.generated.TunerConstants;
 
 /**
@@ -21,14 +21,11 @@ public class AlertManager {
         return instance;
     }
 
-    private static final double lowBatteryDisableTime = 1.5;
-    private static final double lowBatteryVoltageThreshold = 12.0;
-    private static final double canErrorTimeThreshold = 0.5;
+    private static final double lowBatteryVoltageThreshold = 12.1;
 
-    private final Timer disabledTimer = new Timer();
-    private final Timer canInitialErrorTimer = new Timer();
-    private final Timer canErrorTimer = new Timer();
-    private final Timer canivoreErrorTimer = new Timer();
+    private final Debouncer canErrorDebouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
+    private final Debouncer canivoreErrorDebouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
+    private final Debouncer lowBatteryDisabledDebouncer = new Debouncer(1.5);
 
     private int lastRioCanTEC = 0;
     private int lastRioCanREC = 0;
@@ -43,39 +40,26 @@ public class AlertManager {
             new Alert("Battery voltage is low, consider replacing it", Alert.AlertType.kWarning);
     private final Alert tuningModeAlert = new Alert("Tuning mode is enabled", Alert.AlertType.kInfo);
 
-    public void start() {
-        disabledTimer.restart();
-        canErrorTimer.restart();
-        canivoreErrorTimer.restart();
-        canInitialErrorTimer.restart();
-        tuningModeAlert.set(Constants.isTuningMode());
-    }
-
     public void update() {
-        // Update timers
+        tuningModeAlert.set(Constants.isTuningMode());
+
+        // Update CAN bus alerts
         CANStatus rioCanStatus = RobotController.getCANStatus();
-        if (rioCanStatus.transmitErrorCount > lastRioCanTEC || rioCanStatus.receiveErrorCount > lastRioCanREC) {
-            canErrorTimer.reset();
-        }
+        boolean rioCanError =
+                rioCanStatus.transmitErrorCount > lastRioCanTEC || rioCanStatus.receiveErrorCount > lastRioCanREC;
         lastRioCanTEC = rioCanStatus.transmitErrorCount;
         lastRioCanREC = rioCanStatus.receiveErrorCount;
 
         CANBus.CANBusStatus canivoreStatus = TunerConstants.kCANBus.getStatus();
-        if (!canivoreStatus.Status.isOK()
+        boolean canivoreError = !canivoreStatus.Status.isOK()
                 || canivoreStatus.TEC > lastCanivoreTEC
-                || canivoreStatus.REC > lastCanivoreREC) {
-            canivoreErrorTimer.reset();
-        }
+                || canivoreStatus.REC > lastCanivoreREC;
         lastCanivoreTEC = canivoreStatus.TEC;
         lastCanivoreREC = canivoreStatus.REC;
 
-        if (DriverStation.isEnabled()) disabledTimer.reset();
-
-        canErrorAlert.set(!canErrorTimer.hasElapsed(canErrorTimeThreshold)
-                && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
-        canivoreErrorAlert.set(!canivoreErrorTimer.hasElapsed(canErrorTimeThreshold)
-                && canInitialErrorTimer.hasElapsed(canErrorTimeThreshold));
+        canErrorAlert.set(canErrorDebouncer.calculate(rioCanError));
+        canivoreErrorAlert.set(canivoreErrorDebouncer.calculate(canivoreError));
         lowBatteryAlert.set(RobotController.getBatteryVoltage() < lowBatteryVoltageThreshold
-                && disabledTimer.hasElapsed(lowBatteryDisableTime));
+                && lowBatteryDisabledDebouncer.calculate(DriverStation.isDisabled()));
     }
 }
