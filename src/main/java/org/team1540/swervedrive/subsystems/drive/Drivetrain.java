@@ -54,7 +54,7 @@ public class Drivetrain extends SubsystemBase {
             DCMotor.getFalcon500(1).withReduction(TunerConstants.FrontLeft.SteerMotorGearRatio).freeSpeedRadPerSec;
     public static final double MAX_ANGULAR_SPEED_RADS_PER_SEC = MAX_LINEAR_SPEED_MPS / DRIVE_BASE_RADIUS;
 
-    public static final double WHEEL_COF = 1.0;
+    public static final double WHEEL_COF = 1.2;
 
     private static final Translation2d[] MODULE_TRANSLATIONS = new Translation2d[] {
         new Translation2d(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
@@ -168,8 +168,8 @@ public class Drivetrain extends SubsystemBase {
                                 .minus(lastModulePositions[moduleIndex].angle)
                                 .getRadians()
                         / dt;
-                if (Math.abs(velocity) > MAX_LINEAR_SPEED_MPS * 5
-                        || Math.abs(turnVelocity) > MAX_STEER_SPEED_RADS_PER_SEC * 5) {
+                if (Math.abs(velocity) > MAX_LINEAR_SPEED_MPS * 2
+                        || Math.abs(turnVelocity) > MAX_STEER_SPEED_RADS_PER_SEC * 2) {
                     acceptMeasurement = false;
                     break;
                 }
