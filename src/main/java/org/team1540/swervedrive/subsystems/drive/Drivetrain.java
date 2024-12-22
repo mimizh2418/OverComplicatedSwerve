@@ -51,10 +51,12 @@ public class Drivetrain extends SubsystemBase {
                     Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
                     Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
     public static final double MAX_LINEAR_SPEED_MPS = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+    public static final double MAX_STEER_SPEED_RADS_PER_SEC =
+            DCMotor.getFalcon500(1).withReduction(TunerConstants.FrontLeft.SteerMotorGearRatio).freeSpeedRadPerSec;
     public static final double MAX_ANGULAR_SPEED_RADS_PER_SEC = MAX_LINEAR_SPEED_MPS / DRIVE_BASE_RADIUS;
 
     public static final ModuleLimits MODULE_LIMITS = new ModuleLimits(
-            TunerConstants.kSpeedAt12Volts.in(MetersPerSecond), Units.feetToMeters(75.0), Units.degreesToRadians(1700));
+            MAX_LINEAR_SPEED_MPS, Units.feetToMeters(75.0), MAX_STEER_SPEED_RADS_PER_SEC);
 
     public enum DriveMode {
         /** Standard drive mode, driving according to desired chassis speeds */
@@ -125,7 +127,7 @@ public class Drivetrain extends SubsystemBase {
                         Constants.ROBOT_MOI_KG_M2,
                         new ModuleConfig(
                                 TunerConstants.FrontLeft.WheelRadius,
-                                TunerConstants.kSpeedAt12Volts.in(MetersPerSecond),
+                                MAX_LINEAR_SPEED_MPS,
                                 Constants.WHEEL_COF,
                                 DCMotor.getKrakenX60(1).withReduction(TunerConstants.FrontLeft.DriveMotorGearRatio),
                                 TunerConstants.FrontLeft.SlipCurrent,
@@ -180,8 +182,8 @@ public class Drivetrain extends SubsystemBase {
                                 .minus(lastModulePositions[moduleIndex].angle)
                                 .getRadians()
                         / dt;
-                if (Math.abs(velocity) > MODULE_LIMITS.maxDriveVelocity() * 5
-                        || Math.abs(turnVelocity) > MODULE_LIMITS.maxTurnVelocity() * 5) {
+                if (Math.abs(velocity) > MAX_LINEAR_SPEED_MPS * 5
+                        || Math.abs(turnVelocity) > MAX_STEER_SPEED_RADS_PER_SEC * 5) {
                     acceptMeasurement = false;
                     break;
                 }
