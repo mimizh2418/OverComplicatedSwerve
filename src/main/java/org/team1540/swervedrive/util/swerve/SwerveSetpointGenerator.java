@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+// TODO PathPlannerLib has a borked implementation of this, replace this when it gets fixed
+
 // NOTE this file is available at:
 // https://github.com/Team254/FRC-2023-Public/blob/main/src/main/java/com/team254/lib/swerve/SwerveSetpointGenerator.java
 

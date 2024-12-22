@@ -31,10 +31,10 @@ public interface ModuleIO {
     default void updateInputs(ModuleIOInputs inputs) {}
 
     /** Run the drive motor at the specified open loop value. */
-    default void setDriveVoltage(double output) {}
+    default void setDriveOpenLoop(double output) {}
 
     /** Run the turn motor at the specified open loop value. */
-    default void setTurnVoltage(double output) {}
+    default void setTurnOpenLoop(double output) {}
 
     /** Run the drive motor at the specified velocity. */
     default void setDriveVelocity(double velocityRadPerSec) {}

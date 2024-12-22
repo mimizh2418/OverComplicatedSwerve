@@ -125,9 +125,9 @@ public class ModuleIOSim implements ModuleIO {
     }
 
     @Override
-    public void setDriveVoltage(double volts) {
+    public void setDriveOpenLoop(double input) {
         isDriveClosedLoop = false;
-        driveAppliedVolts = MathUtil.clamp(volts, -12.0, 12.0);
+        driveAppliedVolts = MathUtil.clamp(input, -12.0, 12.0);
     }
 
     @Override
@@ -137,8 +137,8 @@ public class ModuleIOSim implements ModuleIO {
     }
 
     @Override
-    public void setTurnVoltage(double volts) {
+    public void setTurnOpenLoop(double input) {
         isTurnClosedLoop = false;
-        turnAppliedVolts = MathUtil.clamp(volts, -12.0, 12.0);
+        turnAppliedVolts = MathUtil.clamp(input, -12.0, 12.0);
     }
 }
