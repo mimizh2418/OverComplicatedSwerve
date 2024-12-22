@@ -12,7 +12,6 @@ import edu.wpi.first.units.measure.Voltage;
 import java.util.Arrays;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 import org.ironmaple.simulation.motorsims.SimulatedMotorController;
-import org.team1540.swervedrive.util.ClosedLoopConfig;
 import org.team1540.swervedrive.util.PhoenixUtil;
 
 /**

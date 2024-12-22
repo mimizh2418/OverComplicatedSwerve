@@ -1,8 +1,6 @@
 package org.team1540.swervedrive.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
-import static org.team1540.swervedrive.util.math.EqualsUtil.*;
-import static org.team1540.swervedrive.util.math.GeomUtil.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.config.ModuleConfig;
@@ -17,7 +15,6 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.system.plant.DCMotor;
-import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -40,9 +37,6 @@ import org.team1540.swervedrive.RobotState;
 import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.generated.TunerConstants;
 import org.team1540.swervedrive.util.*;
-import org.team1540.swervedrive.util.swerve.ModuleLimits;
-import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator;
-import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator.SwerveSetpoint;
 
 public class Drivetrain extends SubsystemBase {
     static final double ODOMETRY_FREQUENCY = 250.0;
@@ -68,8 +62,6 @@ public class Drivetrain extends SubsystemBase {
         new Translation2d(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
         new Translation2d(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY),
     };
-    private static final ModuleLimits MODULE_LIMITS =
-            new ModuleLimits(MAX_LINEAR_SPEED_MPS, Units.feetToMeters(75.0), MAX_STEER_SPEED_RADS_PER_SEC);
 
     private static boolean hasInstance;
 
@@ -90,14 +82,6 @@ public class Drivetrain extends SubsystemBase {
 
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
-
-    private boolean forceModuleRotation = false;
-
-    private SwerveSetpoint currentSetpoint = new SwerveSetpoint(new ChassisSpeeds(), new SwerveModuleState[] {
-        new SwerveModuleState(), new SwerveModuleState(), new SwerveModuleState(), new SwerveModuleState()
-    });
-
-    private final SwerveSetpointGenerator setpointGenerator = new SwerveSetpointGenerator(kinematics);
 
     private final Alert gyroDisconnected = new Alert("Gyro disconnected!", Alert.AlertType.kWarning);
 
@@ -212,16 +196,11 @@ public class Drivetrain extends SubsystemBase {
         if (isFFCharacterizing) {
             for (Module module : modules) module.runCharacterization(ffCharacterizationInput);
         } else {
-            Logger.recordOutput(
-                    "Drivetrain/SwerveStates/DesiredSetpoints", kinematics.toSwerveModuleStates(desiredSpeeds));
-            // Generate kinematically feasible setpoint
-            currentSetpoint = setpointGenerator.generateSetpoint(
-                    MODULE_LIMITS, currentSetpoint, desiredSpeeds, forceModuleRotation, Constants.LOOP_PERIOD_SECS);
-            SwerveModuleState[] setpointStates = currentSetpoint.moduleStates();
+            SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(desiredSpeeds);
             for (int i = 0; i < 4; i++) {
                 modules[i].runSetpoint(setpointStates[i]);
             }
-            Logger.recordOutput("Drivetrain/SwerveStates/OptimizedSetpoints", setpointStates);
+            Logger.recordOutput("Drivetrain/SwerveStates/Setpoints", setpointStates);
         }
 
         // Update gyro alerts
@@ -234,7 +213,6 @@ public class Drivetrain extends SubsystemBase {
      * @param speeds Speeds in meters/sec
      */
     public void runVelocity(ChassisSpeeds speeds) {
-        if (!epsilonEquals(toTwist2d(speeds), new Twist2d())) forceModuleRotation = false;
         speeds.discretize(Constants.LOOP_PERIOD_SECS);
         desiredSpeeds = speeds;
     }
@@ -252,7 +230,6 @@ public class Drivetrain extends SubsystemBase {
         Rotation2d[] headings = new Rotation2d[4];
         for (int i = 0; i < 4; i++) headings[i] = MODULE_TRANSLATIONS[i].getAngle();
         kinematics.resetHeadings(headings);
-        forceModuleRotation = true;
         stop();
     }
 
