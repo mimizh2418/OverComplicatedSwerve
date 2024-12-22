@@ -41,4 +41,10 @@ public interface ModuleIO {
 
     /** Run the turn motor to the specified rotation. */
     default void setTurnPosition(Rotation2d rotation) {}
+
+    /** Sets the neutral mode of the drive motor */
+    default void setDriveBrakeMode(boolean enabled) {}
+
+    /** Set the neutral mode of the turn motor */
+    default void setTurnBrakeMode(boolean enabled) {}
 }

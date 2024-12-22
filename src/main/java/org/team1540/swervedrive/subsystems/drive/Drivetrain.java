@@ -277,6 +277,11 @@ public class Drivetrain extends SubsystemBase {
                         : RobotState.getInstance().getRotation());
     }
 
+    /** Sets the brake mode of all modules */
+    public void setBrakeMode(boolean enabled) {
+        for (Module module : modules) module.setBrakeMode(enabled);
+    }
+
     /** Orients all modules forward and applies the specified voltage to the drive motors */
     private void runFFCharacterization(double volts) {
         characterizationInput = volts;

@@ -130,4 +130,10 @@ public class Module {
     public double getFFCharacterizationVelocity() {
         return Units.radiansToRotations(inputs.driveVelocityRadsPerSec);
     }
+
+    /** Sets the neutral mode of all motors. */
+    public void setBrakeMode(boolean enabled) {
+        io.setDriveBrakeMode(enabled);
+        io.setTurnBrakeMode(enabled);
+    }
 }
