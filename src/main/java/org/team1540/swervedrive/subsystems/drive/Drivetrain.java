@@ -146,6 +146,7 @@ public class Drivetrain extends SubsystemBase {
         // Update odometry
         double[] sampleTimestamps = modules[0].getOdometryTimestamps(); // All signals are sampled together
         int sampleCount = sampleTimestamps.length;
+        int rejectedSamples = 0;
         for (int i = 0; i < sampleCount; i++) {
             // Read wheel positions and deltas from each module
             SwerveModulePosition[] modulePositions = new SwerveModulePosition[4];
@@ -183,8 +184,11 @@ public class Drivetrain extends SubsystemBase {
                 RobotState.getInstance().addOdometryObservation(modulePositions, rawGyroRotation, sampleTimestamps[i]);
                 lastModulePositions = modulePositions;
                 lastOdometryUpdateTime = sampleTimestamps[i];
+            } else {
+                rejectedSamples++;
             }
         }
+        Logger.recordOutput("Odometry/RejectedSamples", rejectedSamples);
 
         // Update robot velocities
         ChassisSpeeds speeds = kinematics.toChassisSpeeds(getModuleStates());

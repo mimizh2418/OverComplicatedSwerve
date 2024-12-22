@@ -69,11 +69,11 @@ public class RobotState {
 
     public void setActiveTrajectory(Pose2d[] trajectory) {
         field.getObject("trajectory").setPoses(trajectory);
-        Logger.recordOutput("RobotState/ActiveTrajectory", trajectory);
+        Logger.recordOutput("Odometry/Trajectory/ActiveTrajectory", trajectory);
     }
 
     public void setCurrentTrajectoryTarget(Pose2d target) {
-        Logger.recordOutput("RobotState/CurrentTrajectoryTarget", target);
+        Logger.recordOutput("Odometry/Trajectory/CurrentTrajectoryTarget", target);
     }
 
     public void resetPose(Pose2d newPose) {
@@ -81,7 +81,7 @@ public class RobotState {
         if (driveSimConfigured) driveSim.setSimulationWorldPose(newPose);
     }
 
-    @AutoLogOutput(key = "RobotState/EstimatedPose")
+    @AutoLogOutput(key = "Odometry/EstimatedPose")
     public Pose2d getRobotPose() {
         if (!poseEstimatorConfigured) return Pose2d.kZero;
         return poseEstimator.getEstimatedPosition();
@@ -92,12 +92,12 @@ public class RobotState {
         return getRobotPose().getRotation();
     }
 
-    @AutoLogOutput(key = "RobotState/RobotVelocity")
+    @AutoLogOutput(key = "Odometry/RobotVelocity")
     public ChassisSpeeds getRobotVelocity() {
         return robotVelocity;
     }
 
-    @AutoLogOutput(key = "RobotState/FieldRelativeVelocity")
+    @AutoLogOutput(key = "Odometry/FieldRelativeVelocity")
     public ChassisSpeeds getFieldRelativeVelocity() {
         var rotated = new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
                 .rotateBy(getRotation());
@@ -115,7 +115,7 @@ public class RobotState {
         }
     }
 
-    @AutoLogOutput(key = "RobotState/SimulatedRobotPose")
+    @AutoLogOutput(key = "SimState/SimulatedRobotPose")
     public Pose2d getSimulatedRobotPose() {
         if (!driveSimConfigured) return Pose2d.kZero;
         return driveSim.getSimulatedDriveTrainPose();
