@@ -199,13 +199,13 @@ public class SwerveSetpointGenerator {
                     prevSetpoint.moduleStates()[i].angle.getSin() * prevSetpoint.moduleStates()[i].speedMetersPerSecond;
             prev_heading[i] = prevSetpoint.moduleStates()[i].angle;
             if (prevSetpoint.moduleStates()[i].speedMetersPerSecond < 0.0) {
-                prev_heading[i] = prev_heading[i].rotateBy(Rotation2d.fromDegrees(180));
+                prev_heading[i] = prev_heading[i].rotateBy(Rotation2d.k180deg);
             }
             desired_vx[i] = desiredModuleState[i].angle.getCos() * desiredModuleState[i].speedMetersPerSecond;
             desired_vy[i] = desiredModuleState[i].angle.getSin() * desiredModuleState[i].speedMetersPerSecond;
             desired_heading[i] = desiredModuleState[i].angle;
             if (desiredModuleState[i].speedMetersPerSecond < 0.0) {
-                desired_heading[i] = desired_heading[i].rotateBy(Rotation2d.fromDegrees(180));
+                desired_heading[i] = desired_heading[i].rotateBy(Rotation2d.k180deg);
             }
             if (all_modules_should_flip) {
                 double required_rotation_rad = Math.abs(prev_heading[i]
@@ -268,7 +268,7 @@ public class SwerveSetpointGenerator {
                 Rotation2d necessaryRotation =
                         prevSetpoint.moduleStates()[i].angle.unaryMinus().rotateBy(desiredModuleState[i].angle);
                 if (flipHeading(necessaryRotation)) {
-                    necessaryRotation = necessaryRotation.rotateBy(Rotation2d.fromDegrees(180));
+                    necessaryRotation = necessaryRotation.rotateBy(Rotation2d.k180deg);
                 }
                 // getRadians() bounds to +/- Pi.
                 final double numStepsNeeded = Math.abs(necessaryRotation.getRadians()) / max_theta_step;
@@ -349,7 +349,7 @@ public class SwerveSetpointGenerator {
             final Rotation2d deltaRotation =
                     prevSetpoint.moduleStates()[i].angle.unaryMinus().rotateBy(retStates[i].angle);
             if (flipHeading(deltaRotation)) {
-                retStates[i].angle = retStates[i].angle.rotateBy(Rotation2d.fromDegrees(180));
+                retStates[i].angle = retStates[i].angle.rotateBy(Rotation2d.k180deg);
                 retStates[i].speedMetersPerSecond *= -1.0;
             }
         }

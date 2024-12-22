@@ -25,7 +25,7 @@ public class RobotState {
     private SwerveDrivePoseEstimator poseEstimator;
     private ChassisSpeeds robotVelocity = new ChassisSpeeds();
 
-    private Rotation2d lastGyroRotation = new Rotation2d();
+    private Rotation2d lastGyroRotation = Rotation2d.kZero;
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
         new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
     };
@@ -42,7 +42,7 @@ public class RobotState {
                     kinematics,
                     lastGyroRotation,
                     lastModulePositions,
-                    new Pose2d(),
+                    Pose2d.kZero,
                     VecBuilder.fill(0.1, 0.1, 0.1),
                     VecBuilder.fill(0.5, 0.5, 5.0));
             poseEstimatorConfigured = true;
@@ -77,12 +77,12 @@ public class RobotState {
 
     @AutoLogOutput(key = "RobotState/EstimatedPose")
     public Pose2d getRobotPose() {
-        if (!poseEstimatorConfigured) return new Pose2d();
+        if (!poseEstimatorConfigured) return Pose2d.kZero;
         return poseEstimator.getEstimatedPosition();
     }
 
     public Rotation2d getRotation() {
-        if (!poseEstimatorConfigured) return new Rotation2d();
+        if (!poseEstimatorConfigured) return Rotation2d.kZero;
         return getRobotPose().getRotation();
     }
 

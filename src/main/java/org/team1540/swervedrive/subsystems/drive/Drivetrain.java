@@ -55,8 +55,8 @@ public class Drivetrain extends SubsystemBase {
             DCMotor.getFalcon500(1).withReduction(TunerConstants.FrontLeft.SteerMotorGearRatio).freeSpeedRadPerSec;
     public static final double MAX_ANGULAR_SPEED_RADS_PER_SEC = MAX_LINEAR_SPEED_MPS / DRIVE_BASE_RADIUS;
 
-    public static final ModuleLimits MODULE_LIMITS = new ModuleLimits(
-            MAX_LINEAR_SPEED_MPS, Units.feetToMeters(75.0), MAX_STEER_SPEED_RADS_PER_SEC);
+    public static final ModuleLimits MODULE_LIMITS =
+            new ModuleLimits(MAX_LINEAR_SPEED_MPS, Units.feetToMeters(75.0), MAX_STEER_SPEED_RADS_PER_SEC);
 
     public enum DriveMode {
         /** Standard drive mode, driving according to desired chassis speeds */
@@ -76,10 +76,10 @@ public class Drivetrain extends SubsystemBase {
     private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
     private final Module[] modules = new Module[4]; // FL, FR, BL, BR
 
-    private Rotation2d fieldOrientationOffset = new Rotation2d();
+    private Rotation2d fieldOrientationOffset = Rotation2d.kZero;
 
     private final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
-    private Rotation2d rawGyroRotation = new Rotation2d();
+    private Rotation2d rawGyroRotation = Rotation2d.kZero;
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[4]; // For odometry delta filtering
     private double lastOdometryUpdateTime = 0.0;
 
@@ -273,7 +273,7 @@ public class Drivetrain extends SubsystemBase {
     public void zeroFieldOrientation() {
         fieldOrientationOffset = rawGyroRotation.minus(
                 AllianceFlipUtil.shouldFlip()
-                        ? RobotState.getInstance().getRotation().plus(Rotation2d.fromDegrees(180))
+                        ? RobotState.getInstance().getRotation().plus(Rotation2d.k180deg)
                         : RobotState.getInstance().getRotation());
     }
 
@@ -345,8 +345,8 @@ public class Drivetrain extends SubsystemBase {
 
                             double linearMagnitude = JoystickUtil.smartDeadzone(Math.hypot(xPercent, yPercent), 0.1);
                             Rotation2d linearDirection = new Rotation2d(xPercent, yPercent);
-                            Translation2d linearVelocity = new Pose2d(new Translation2d(), linearDirection)
-                                    .transformBy(new Transform2d(linearMagnitude, 0.0, new Rotation2d()))
+                            Translation2d linearVelocity = new Pose2d(Translation2d.kZero, linearDirection)
+                                    .transformBy(new Transform2d(linearMagnitude, 0.0, Rotation2d.kZero))
                                     .getTranslation();
                             var speeds = new ChassisSpeeds(
                                     linearVelocity.getX() * MAX_LINEAR_SPEED_MPS,
