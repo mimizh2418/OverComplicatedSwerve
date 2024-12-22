@@ -1,6 +1,6 @@
 package org.team1540.swervedrive.subsystems.drive;
 
-import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.*;
 import static org.team1540.swervedrive.util.math.EqualsUtil.*;
 import static org.team1540.swervedrive.util.math.GeomUtil.*;
 
@@ -28,6 +28,10 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
+import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
+import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
@@ -41,7 +45,7 @@ import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator;
 import org.team1540.swervedrive.util.swerve.SwerveSetpointGenerator.SwerveSetpoint;
 
 public class Drivetrain extends SubsystemBase {
-    public static final double ODOMETRY_FREQUENCY = 250.0;
+    static final double ODOMETRY_FREQUENCY = 250.0;
 
     public static final double DRIVE_BASE_RADIUS = Math.max(
             Math.max(
@@ -50,12 +54,21 @@ public class Drivetrain extends SubsystemBase {
             Math.max(
                     Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
                     Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
+
     public static final double MAX_LINEAR_SPEED_MPS = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
     public static final double MAX_STEER_SPEED_RADS_PER_SEC =
             DCMotor.getFalcon500(1).withReduction(TunerConstants.FrontLeft.SteerMotorGearRatio).freeSpeedRadPerSec;
     public static final double MAX_ANGULAR_SPEED_RADS_PER_SEC = MAX_LINEAR_SPEED_MPS / DRIVE_BASE_RADIUS;
 
-    public static final ModuleLimits MODULE_LIMITS =
+    public static final double WHEEL_COF = 1.0;
+
+    private static final Translation2d[] MODULE_TRANSLATIONS = new Translation2d[] {
+        new Translation2d(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
+        new Translation2d(TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY),
+        new Translation2d(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
+        new Translation2d(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY),
+    };
+    private static final ModuleLimits MODULE_LIMITS =
             new ModuleLimits(MAX_LINEAR_SPEED_MPS, Units.feetToMeters(75.0), MAX_STEER_SPEED_RADS_PER_SEC);
 
     private static boolean hasInstance;
@@ -67,7 +80,7 @@ public class Drivetrain extends SubsystemBase {
 
     private Rotation2d fieldOrientationOffset = Rotation2d.kZero;
 
-    private final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(getModuleTranslations());
+    private final SwerveDriveKinematics kinematics = new SwerveDriveKinematics(MODULE_TRANSLATIONS);
     private Rotation2d rawGyroRotation = Rotation2d.kZero;
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[4]; // For odometry delta filtering
     private double lastOdometryUpdateTime = 0.0;
@@ -116,11 +129,11 @@ public class Drivetrain extends SubsystemBase {
                         new ModuleConfig(
                                 TunerConstants.FrontLeft.WheelRadius,
                                 MAX_LINEAR_SPEED_MPS,
-                                Constants.WHEEL_COF,
+                                WHEEL_COF,
                                 DCMotor.getKrakenX60(1).withReduction(TunerConstants.FrontLeft.DriveMotorGearRatio),
                                 TunerConstants.FrontLeft.SlipCurrent,
                                 1),
-                        getModuleTranslations()),
+                        MODULE_TRANSLATIONS),
                 AllianceFlipUtil::shouldFlip,
                 this);
 
@@ -237,7 +250,7 @@ public class Drivetrain extends SubsystemBase {
      */
     public void stopWithX() {
         Rotation2d[] headings = new Rotation2d[4];
-        for (int i = 0; i < 4; i++) headings[i] = getModuleTranslations()[i].getAngle();
+        for (int i = 0; i < 4; i++) headings[i] = MODULE_TRANSLATIONS[i].getAngle();
         kinematics.resetHeadings(headings);
         forceModuleRotation = true;
         stop();
@@ -295,16 +308,6 @@ public class Drivetrain extends SubsystemBase {
             states[i] = modules[i].getState();
         }
         return states;
-    }
-
-    /** Returns an array of module translations. */
-    public Translation2d[] getModuleTranslations() {
-        return new Translation2d[] {
-            new Translation2d(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
-            new Translation2d(TunerConstants.FrontRight.LocationX, TunerConstants.FrontRight.LocationY),
-            new Translation2d(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
-            new Translation2d(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY),
-        };
     }
 
     /** Returns a command that drives the robot based on joystick inputs */
@@ -365,12 +368,31 @@ public class Drivetrain extends SubsystemBase {
     public static Drivetrain createSim() {
         if (Constants.currentMode == Constants.Mode.REAL)
             DriverStation.reportWarning("Using simulated drivetrain on real robot", false);
+
+        var simConfig = DriveTrainSimulationConfig.Default()
+                .withRobotMass(Kilograms.of(Constants.ROBOT_MASS_KG))
+                .withCustomModuleTranslations(MODULE_TRANSLATIONS)
+                .withBumperSize(
+                        Meters.of(Constants.BUMPER_LENGTH_X_METERS), Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
+                .withGyro(COTS.ofPigeon2())
+                .withSwerveModule(() -> new SwerveModuleSimulation(
+                        DCMotor.getKrakenX60Foc(1),
+                        DCMotor.getFalcon500(1),
+                        TunerConstants.FrontLeft.DriveMotorGearRatio,
+                        TunerConstants.FrontLeft.SteerMotorGearRatio,
+                        Volts.of(TunerConstants.FrontLeft.DriveFrictionVoltage),
+                        Volts.of(TunerConstants.FrontLeft.SteerFrictionVoltage),
+                        Meters.of(TunerConstants.FrontLeft.WheelRadius),
+                        KilogramSquareMeters.of(TunerConstants.FrontLeft.SteerInertia),
+                        WHEEL_COF));
+        var driveSim = new SwerveDriveSimulation(simConfig, Pose2d.kZero);
+        RobotState.getInstance().configureDriveSim(driveSim);
         return new Drivetrain(
-                new GyroIO() {},
-                new ModuleIOSim(TunerConstants.FrontLeft),
-                new ModuleIOSim(TunerConstants.FrontRight),
-                new ModuleIOSim(TunerConstants.BackLeft),
-                new ModuleIOSim(TunerConstants.BackRight));
+                new GyroIOSim(driveSim.getGyroSimulation()),
+                new ModuleIOSim(TunerConstants.FrontLeft, driveSim.getModules()[0]),
+                new ModuleIOSim(TunerConstants.FrontRight, driveSim.getModules()[1]),
+                new ModuleIOSim(TunerConstants.BackLeft, driveSim.getModules()[2]),
+                new ModuleIOSim(TunerConstants.BackRight, driveSim.getModules()[3]));
     }
 
     public static Drivetrain createDummy() {

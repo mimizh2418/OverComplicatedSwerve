@@ -10,11 +10,13 @@ import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import org.ironmaple.simulation.SimulatedArena;
+import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 
 public class RobotState {
-    private static RobotState instance;
+    private static RobotState instance = null;
 
     public static RobotState getInstance() {
         if (instance == null) instance = new RobotState();
@@ -29,6 +31,9 @@ public class RobotState {
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
         new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
     };
+
+    private boolean driveSimConfigured = false;
+    private SwerveDriveSimulation driveSim;
 
     private final Field2d field = new Field2d();
 
@@ -72,7 +77,8 @@ public class RobotState {
     }
 
     public void resetPose(Pose2d newPose) {
-        poseEstimator.resetPosition(lastGyroRotation, lastModulePositions, newPose);
+        if (poseEstimatorConfigured) poseEstimator.resetPosition(lastGyroRotation, lastModulePositions, newPose);
+        if (driveSimConfigured) driveSim.setSimulationWorldPose(newPose);
     }
 
     @AutoLogOutput(key = "RobotState/EstimatedPose")
@@ -96,5 +102,22 @@ public class RobotState {
         var rotated = new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
                 .rotateBy(getRotation());
         return new ChassisSpeeds(rotated.getX(), rotated.getY(), robotVelocity.omegaRadiansPerSecond);
+    }
+
+    public void configureDriveSim(SwerveDriveSimulation driveSim) {
+        if (!driveSimConfigured) {
+            if (!Robot.isSimulation()) {
+                throw new IllegalStateException("Cannot configure drive simulation when not in simulation");
+            }
+            this.driveSim = driveSim;
+            driveSimConfigured = true;
+            SimulatedArena.getInstance().addDriveTrainSimulation(driveSim);
+        }
+    }
+
+    @AutoLogOutput(key = "RobotState/SimulatedRobotPose")
+    public Pose2d getSimulatedRobotPose() {
+        if (!driveSimConfigured) return Pose2d.kZero;
+        return driveSim.getSimulatedDriveTrainPose();
     }
 }

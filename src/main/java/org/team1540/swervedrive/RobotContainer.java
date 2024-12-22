@@ -1,6 +1,8 @@
 package org.team1540.swervedrive;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -38,6 +40,8 @@ public class RobotContainer {
             case SIM:
                 // Sim robot, instantiate physics sim IO implementations
                 drivetrain = Drivetrain.createSim();
+
+                RobotState.getInstance().resetPose(new Pose2d(3.0, 3.0, new Rotation2d()));
                 break;
 
             default:
@@ -68,6 +72,9 @@ public class RobotContainer {
                 () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX(), () -> true));
         controller.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
         controller.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
+
+        controller.start().and(Robot::isSimulation).onTrue(Commands.runOnce(() -> RobotState.getInstance()
+                .resetPose(new Pose2d(3.0, 3.0, new Rotation2d()))));
     }
 
     /**

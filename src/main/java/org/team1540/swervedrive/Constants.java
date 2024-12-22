@@ -34,5 +34,7 @@ public final class Constants {
 
     public static final double ROBOT_MASS_KG = Units.lbsToKilograms(140);
     public static final double ROBOT_MOI_KG_M2 = 6.883;
-    public static final double WHEEL_COF = 1.0;
+
+    public static final double BUMPER_LENGTH_X_METERS = Units.inchesToMeters(27);
+    public static final double BUMPER_LENGTH_Y_METERS = Units.inchesToMeters(27);
 }
