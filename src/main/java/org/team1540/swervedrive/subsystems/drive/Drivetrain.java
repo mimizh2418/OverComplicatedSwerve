@@ -58,17 +58,6 @@ public class Drivetrain extends SubsystemBase {
     public static final ModuleLimits MODULE_LIMITS =
             new ModuleLimits(MAX_LINEAR_SPEED_MPS, Units.feetToMeters(75.0), MAX_STEER_SPEED_RADS_PER_SEC);
 
-    public enum DriveMode {
-        /** Standard drive mode, driving according to desired chassis speeds */
-        DEFAULT,
-
-        /** Characterizing drive motor velocity feedforwards */
-        FF_CHARACTERIZATION,
-
-        /** Spinning in a circle and using gyro rotation to characterize wheel radius */
-        WHEEL_RADIUS_CHARACTERIZATION
-    }
-
     private static boolean hasInstance;
 
     static final Lock odometryLock = new ReentrantLock();
@@ -83,14 +72,13 @@ public class Drivetrain extends SubsystemBase {
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[4]; // For odometry delta filtering
     private double lastOdometryUpdateTime = 0.0;
 
-    @AutoLogOutput(key = "Drivetrain/CurrentDriveMode")
-    private DriveMode currentDriveMode = DriveMode.DEFAULT;
-
-    private double characterizationInput;
-    private boolean forceModuleRotation = false;
+    private boolean isFFCharacterizing = false;
+    private double ffCharacterizationInput = 0.0;
 
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
+
+    private boolean forceModuleRotation = false;
 
     private SwerveSetpoint currentSetpoint = new SwerveSetpoint(new ChassisSpeeds(), new SwerveModuleState[] {
         new SwerveModuleState(), new SwerveModuleState(), new SwerveModuleState(), new SwerveModuleState()
@@ -207,25 +195,16 @@ public class Drivetrain extends SubsystemBase {
                 gyroInputs.connected ? gyroInputs.yawVelocityRadPerSec : speeds.omegaRadiansPerSecond;
         RobotState.getInstance().addVelocityData(speeds);
 
-        SwerveModuleState[] setpointStates = new SwerveModuleState[4];
-
         // Run modules based on current drive mode
-        switch (currentDriveMode) {
-            case FF_CHARACTERIZATION -> {
-                for (Module module : modules) module.runCharacterization(characterizationInput);
-            }
-            case WHEEL_RADIUS_CHARACTERIZATION -> setpointStates =
-                    kinematics.toSwerveModuleStates(new ChassisSpeeds(0, 0, characterizationInput));
-            default -> {
-                Logger.recordOutput(
-                        "Drivetrain/SwerveStates/DesiredSetpoints", kinematics.toSwerveModuleStates(desiredSpeeds));
-                // Generate kinematically feasible setpoint
-                currentSetpoint = setpointGenerator.generateSetpoint(
-                        MODULE_LIMITS, currentSetpoint, desiredSpeeds, forceModuleRotation, Constants.LOOP_PERIOD_SECS);
-                setpointStates = currentSetpoint.moduleStates();
-            }
-        }
-        if (currentDriveMode != DriveMode.FF_CHARACTERIZATION) {
+        if (isFFCharacterizing) {
+            for (Module module : modules) module.runCharacterization(ffCharacterizationInput);
+        } else {
+            Logger.recordOutput(
+                    "Drivetrain/SwerveStates/DesiredSetpoints", kinematics.toSwerveModuleStates(desiredSpeeds));
+            // Generate kinematically feasible setpoint
+            currentSetpoint = setpointGenerator.generateSetpoint(
+                    MODULE_LIMITS, currentSetpoint, desiredSpeeds, forceModuleRotation, Constants.LOOP_PERIOD_SECS);
+            SwerveModuleState[] setpointStates = currentSetpoint.moduleStates();
             for (int i = 0; i < 4; i++) {
                 modules[i].runSetpoint(setpointStates[i]);
             }
@@ -284,22 +263,14 @@ public class Drivetrain extends SubsystemBase {
 
     /** Orients all modules forward and applies the specified voltage to the drive motors */
     private void runFFCharacterization(double volts) {
-        characterizationInput = volts;
-        currentDriveMode = DriveMode.FF_CHARACTERIZATION;
-    }
-
-    /**
-     * Spins the robot in a circle at the specified angular velocity to characterize wheel radius
-     */
-    private void runWheelRadiusCharacterization(double omega) {
-        characterizationInput = omega;
-        currentDriveMode = DriveMode.WHEEL_RADIUS_CHARACTERIZATION;
+        ffCharacterizationInput = volts;
+        isFFCharacterizing = true;
     }
 
     /** Ends characterization and returns to default drive behavior */
-    private void endCharacterization() {
-        characterizationInput = 0;
-        currentDriveMode = DriveMode.DEFAULT;
+    private void endFFCharacterization() {
+        ffCharacterizationInput = 0;
+        isFFCharacterizing = false;
     }
 
     /** Returns the average velocity of each module in rot/s */
@@ -369,16 +340,15 @@ public class Drivetrain extends SubsystemBase {
     public Command feedforwardCharacterization() {
         return CharacterizationCommands.feedforward(
                         this::runFFCharacterization, this::getFFCharacterizationVelocity, this)
-                .finallyDo(this::endCharacterization);
+                .finallyDo(this::endFFCharacterization);
     }
 
     public Command wheelRadiusCharacterization() {
         return CharacterizationCommands.wheelRadius(
-                        this::runWheelRadiusCharacterization,
-                        () -> rawGyroRotation.getRadians(),
-                        this::getWheelRadiusCharacterizationPositions,
-                        this)
-                .finallyDo(this::endCharacterization);
+                input -> runVelocity(new ChassisSpeeds(0.0, 0.0, input)),
+                () -> rawGyroRotation.getRadians(),
+                this::getWheelRadiusCharacterizationPositions,
+                this);
     }
 
     public static Drivetrain createReal() {

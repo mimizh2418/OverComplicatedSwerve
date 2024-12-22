@@ -21,7 +21,7 @@ public class AlertManager {
         return instance;
     }
 
-    private static final double lowBatteryVoltageThreshold = 12.1;
+    private static final double lowBatteryVoltageThreshold = 12.0;
 
     private final Debouncer canErrorDebouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
     private final Debouncer canivoreErrorDebouncer = new Debouncer(0.5, Debouncer.DebounceType.kBoth);
