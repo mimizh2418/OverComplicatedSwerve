@@ -73,8 +73,12 @@ public class RobotContainer {
         controller.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
         controller.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
 
-        controller.start().and(Robot::isSimulation).onTrue(Commands.runOnce(() -> RobotState.getInstance()
-                .resetPose(new Pose2d(3.0, 3.0, new Rotation2d()))));
+        controller
+                .start()
+                .and(Robot::isSimulation)
+                .onTrue(Commands.runOnce(
+                                () -> RobotState.getInstance().resetPose(new Pose2d(3.0, 3.0, new Rotation2d())))
+                        .ignoringDisable(true));
     }
 
     /**
