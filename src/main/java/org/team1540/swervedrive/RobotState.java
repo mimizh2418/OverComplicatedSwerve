@@ -125,7 +125,6 @@ public class RobotState {
         }
     }
 
-    @AutoLogOutput(key = "SimState/SimulatedRobotPose")
     public Pose2d getSimulatedRobotPose() {
         if (!driveSimConfigured) return Pose2d.kZero;
         return driveSim.getSimulatedDriveTrainPose();
