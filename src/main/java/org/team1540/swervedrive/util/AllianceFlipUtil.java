@@ -22,6 +22,11 @@ public class AllianceFlipUtil {
     }
 
     public static Rotation2d flipRotation(Rotation2d rotation) {
+        if (shouldFlip()) return FlippingUtil.flipFieldRotation(rotation);
+        return rotation;
+    }
+
+    public static Rotation2d reverseRotation(Rotation2d rotation) {
         if (shouldFlip()) return rotation.plus(Rotation2d.k180deg);
         return rotation;
     }

@@ -79,20 +79,23 @@ public class RobotContainer {
 
         driver.povUp()
                 .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.flipRotation(Rotation2d.kZero), () -> true));
+                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.kZero), () -> true));
         driver.povLeft()
                 .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.flipRotation(Rotation2d.kCCW_90deg), () -> true));
+                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.kCCW_90deg), () -> true));
         driver.povDown()
                 .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.flipRotation(Rotation2d.k180deg), () -> true));
+                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.k180deg), () -> true));
         driver.povRight()
                 .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.flipRotation(Rotation2d.kCW_90deg), () -> true));
+                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.kCW_90deg), () -> true));
 
         driver.start()
                 .and(Robot::isSimulation)
-                .onTrue(Commands.runOnce(() -> robotState.resetPose(FieldConstants.MIDFIELD))
+                .onTrue(Commands.runOnce(() -> {
+                            robotState.resetPose(FieldConstants.MIDFIELD);
+                            drivetrain.zeroFieldOrientation();
+                        })
                         .ignoringDisable(true));
     }
 
