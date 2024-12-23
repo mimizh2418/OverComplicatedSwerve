@@ -9,14 +9,17 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 import com.pathplanner.lib.pathfinding.Pathfinding;
 import com.pathplanner.lib.util.PathPlannerLogging;
+import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.system.plant.DCMotor;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -25,6 +28,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
+import java.util.function.Supplier;
 import org.ironmaple.simulation.drivesims.COTS;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
@@ -83,6 +87,12 @@ public class Drivetrain extends SubsystemBase {
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
 
+    private final ProfiledPIDController headingController = new ProfiledPIDController(
+            7.5,
+            0.0,
+            0.0,
+            new TrapezoidProfile.Constraints(MAX_ANGULAR_SPEED_RADS_PER_SEC, MAX_ANGULAR_SPEED_RADS_PER_SEC * 3));
+
     private final Alert gyroDisconnected = new Alert("Gyro disconnected!", Alert.AlertType.kWarning);
 
     public Drivetrain(
@@ -129,6 +139,9 @@ public class Drivetrain extends SubsystemBase {
         for (int i = 0; i < 4; i++) {
             lastModulePositions[i] = modules[i].getPosition();
         }
+
+        headingController.setTolerance(Math.toRadians(1.0));
+        headingController.enableContinuousInput(-Math.PI, Math.PI);
     }
 
     @Override
@@ -291,27 +304,14 @@ public class Drivetrain extends SubsystemBase {
         return states;
     }
 
-    /** Returns a command that drives the robot based on joystick inputs */
-    public Command teleopDriveCommand(
-            DoubleSupplier controllerX,
-            DoubleSupplier controllerY,
-            DoubleSupplier controllerOmega,
-            BooleanSupplier fieldRelative) {
+    public Command percentDriveCommand(
+            Supplier<Translation2d> linearPercent, DoubleSupplier omegaPercent, BooleanSupplier fieldRelative) {
         return Commands.run(
                         () -> {
-                            double xPercent = controllerX.getAsDouble();
-                            double yPercent = controllerY.getAsDouble();
-                            double omega = JoystickUtil.smartDeadzone(controllerOmega.getAsDouble(), 0.1);
-
-                            double linearMagnitude = JoystickUtil.smartDeadzone(Math.hypot(xPercent, yPercent), 0.1);
-                            Rotation2d linearDirection = new Rotation2d(xPercent, yPercent);
-                            Translation2d linearVelocity = new Pose2d(Translation2d.kZero, linearDirection)
-                                    .transformBy(new Transform2d(linearMagnitude, 0.0, Rotation2d.kZero))
-                                    .getTranslation();
                             var speeds = new ChassisSpeeds(
-                                    linearVelocity.getX() * MAX_LINEAR_SPEED_MPS,
-                                    linearVelocity.getY() * MAX_LINEAR_SPEED_MPS,
-                                    omega * MAX_ANGULAR_SPEED_RADS_PER_SEC);
+                                    linearPercent.get().getX() * MAX_LINEAR_SPEED_MPS,
+                                    linearPercent.get().getY() * MAX_LINEAR_SPEED_MPS,
+                                    omegaPercent.getAsDouble() * MAX_ANGULAR_SPEED_RADS_PER_SEC);
                             if (fieldRelative.getAsBoolean()) {
                                 speeds.toRobotRelativeSpeeds(rawGyroRotation.minus(fieldOrientationOffset));
                             }
@@ -319,6 +319,26 @@ public class Drivetrain extends SubsystemBase {
                         },
                         this)
                 .finallyDo(this::stop);
+    }
+
+    public Command teleopDriveCommand(XboxController controller, BooleanSupplier fieldRelative) {
+        return percentDriveCommand(
+                () -> JoystickUtil.getJoystickTranslation(-controller.getLeftY(), -controller.getLeftX(), 0.1),
+                () -> JoystickUtil.smartDeadzone(-controller.getRightX(), 0.1),
+                fieldRelative);
+    }
+
+    public Command teleopDriveWithHeadingCommand(
+            XboxController controller, Supplier<Rotation2d> heading, BooleanSupplier fieldRelative) {
+        return percentDriveCommand(
+                        () -> JoystickUtil.getJoystickTranslation(-controller.getLeftY(), -controller.getLeftX(), 0.1),
+                        () -> headingController.calculate(
+                                        RobotState.getInstance().getRotation().getRadians(),
+                                        heading.get().getRadians())
+                                / MAX_ANGULAR_SPEED_RADS_PER_SEC,
+                        fieldRelative)
+                .alongWith(Commands.run(() -> Logger.recordOutput("Drivetrain/HeadingGoal", heading.get())))
+                .until(() -> controller.getRightX() >= 0.1);
     }
 
     public Command feedforwardCharacterization() {
