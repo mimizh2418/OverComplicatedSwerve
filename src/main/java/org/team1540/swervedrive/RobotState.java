@@ -1,6 +1,7 @@
 package org.team1540.swervedrive;
 
 import edu.wpi.first.math.VecBuilder;
+import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -8,12 +9,14 @@ import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 
 public class RobotState {
     private static RobotState instance = null;
@@ -60,6 +63,13 @@ public class RobotState {
         if (poseEstimatorConfigured) {
             poseEstimator.updateWithTime(timestamp, gyroAngle, modulePositions);
             field.setRobotPose(getRobotPose());
+        }
+    }
+
+    public void addVisionObservation(AprilTagVision.PoseObservation observation, Vector<N3> stdDevs) {
+        if (poseEstimatorConfigured) {
+            poseEstimator.setVisionMeasurementStdDevs(stdDevs);
+            poseEstimator.addVisionMeasurement(observation.pose().toPose2d(), observation.timestampSecs());
         }
     }
 

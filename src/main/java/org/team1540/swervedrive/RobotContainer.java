@@ -1,8 +1,6 @@
 package org.team1540.swervedrive;
 
 import com.pathplanner.lib.auto.AutoBuilder;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -10,6 +8,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.team1540.swervedrive.subsystems.drive.*;
+import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -22,9 +21,10 @@ public class RobotContainer {
 
     // Subsystems
     public final Drivetrain drivetrain;
+    public final AprilTagVision aprilTagVision;
 
     // Controller
-    private final CommandXboxController controller = new CommandXboxController(0);
+    private final CommandXboxController driver = new CommandXboxController(0);
 
     // Dashboard inputs
     private final LoggedDashboardChooser<Command> autoChooser;
@@ -35,18 +35,21 @@ public class RobotContainer {
             case REAL:
                 // Real robot, instantiate hardware IO implementations
                 drivetrain = Drivetrain.createReal();
+                aprilTagVision = AprilTagVision.createReal();
                 break;
 
             case SIM:
                 // Sim robot, instantiate physics sim IO implementations
                 drivetrain = Drivetrain.createSim();
+                aprilTagVision = AprilTagVision.createSim();
 
-                RobotState.getInstance().resetPose(new Pose2d(3.0, 3.0, new Rotation2d()));
+                RobotState.getInstance().resetPose(FieldConstants.MIDFIELD);
                 break;
 
             default:
                 // Replayed robot, disable IO implementations
                 drivetrain = Drivetrain.createDummy();
+                aprilTagVision = AprilTagVision.createDummy();
                 break;
         }
 
@@ -69,15 +72,13 @@ public class RobotContainer {
      */
     private void configureButtonBindings() {
         drivetrain.setDefaultCommand(drivetrain.teleopDriveCommand(
-                () -> -controller.getLeftY(), () -> -controller.getLeftX(), () -> -controller.getRightX(), () -> true));
-        controller.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
-        controller.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
+                () -> -driver.getLeftY(), () -> -driver.getLeftX(), () -> -driver.getRightX(), () -> true));
+        driver.x().onTrue(Commands.runOnce(drivetrain::stopWithX, drivetrain));
+        driver.y().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
 
-        controller
-                .start()
+        driver.start()
                 .and(Robot::isSimulation)
-                .onTrue(Commands.runOnce(
-                                () -> RobotState.getInstance().resetPose(new Pose2d(3.0, 3.0, new Rotation2d())))
+                .onTrue(Commands.runOnce(() -> robotState.resetPose(FieldConstants.MIDFIELD))
                         .ignoringDisable(true));
     }
 
