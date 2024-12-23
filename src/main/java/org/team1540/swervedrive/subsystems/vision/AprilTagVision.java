@@ -16,6 +16,20 @@ import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.FieldConstants;
 import org.team1540.swervedrive.RobotState;
 
+/**
+ * The robot knows where it is at all times. It knows this because it knows where it would have been when it saw what it
+ * saw. By combining where what it saw should be, with where it must have been to see what it saw, relative to wherever
+ * what it saw is, it knows where it was when it saw what it saw.
+ *
+ * <p> To know where it is, instead of where it was, it must know how it got from where it was to where it is, wherever
+ * where it was, was. It knows this because it knows where its wheels went when it went from where it was to where it
+ * is.
+ *
+ * <p> By starting at where it was when it saw what it saw, and going the way it went, it knows where it should be now.
+ * In the event that where it is when it next sees what it sees is not where it would be if it went the way it went from
+ * where it was, the robot has acquired an error. With a weighted average of where it would have been with where it was
+ * when it saw what it saw, it can correct where it was, and therefore where it should be — which is called pose.
+ */
 public class AprilTagVision extends SubsystemBase {
     public record TagObservation(int tagId, Transform3d robotToTag, Pose3d fieldToTag) {}
 
