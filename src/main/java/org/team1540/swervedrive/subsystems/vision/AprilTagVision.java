@@ -6,6 +6,7 @@ import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -45,33 +46,33 @@ public class AprilTagVision extends SubsystemBase {
         new CameraConfig(
                 "front-left",
                 new Transform3d(
-                        0.254,
-                        0.254,
-                        0.118,
+                        Units.inchesToMeters(12.797),
+                        Units.inchesToMeters(12.290),
+                        Units.inchesToMeters(8.0),
                         new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
                                 .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(45))))), // Yaw left 45 degrees
         new CameraConfig(
                 "front-right",
                 new Transform3d(
-                        0.254,
-                        -0.254,
-                        0.118,
+                        Units.inchesToMeters(12.797),
+                        Units.inchesToMeters(-12.290),
+                        Units.inchesToMeters(8.0),
                         new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
                                 .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-45))))), // Yaw right 45 degrees
         new CameraConfig(
                 "back-left",
                 new Transform3d(
-                        -0.254,
-                        0.254,
-                        0.118,
+                        Units.inchesToMeters(-12.797),
+                        Units.inchesToMeters(12.290),
+                        Units.inchesToMeters(8.0),
                         new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
                                 .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(135))))), // Yaw left 135 degrees
         new CameraConfig(
                 "back-right",
                 new Transform3d(
-                        -0.254,
-                        -0.254,
-                        0.118,
+                        Units.inchesToMeters(-12.797),
+                        Units.inchesToMeters(-12.290),
+                        Units.inchesToMeters(8.0),
                         new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
                                 .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-135))))), // Yaw right 135 degrees
     };

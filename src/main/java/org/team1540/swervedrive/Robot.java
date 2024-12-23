@@ -160,6 +160,7 @@ public class Robot extends LoggedRobot {
     @Override
     public void simulationPeriodic() {
         SimulatedArena.getInstance().simulationPeriodic();
-        Logger.recordOutput("SimState/SimulatedRobotPose", RobotState.getInstance().getSimulatedRobotPose());
+        Logger.recordOutput(
+                "SimState/SimulatedRobotPose", RobotState.getInstance().getSimulatedRobotPose());
     }
 }
