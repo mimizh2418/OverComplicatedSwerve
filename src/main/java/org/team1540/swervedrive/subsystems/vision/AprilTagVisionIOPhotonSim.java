@@ -23,7 +23,7 @@ public class AprilTagVisionIOPhotonSim extends AprilTagVisionIOPhoton {
 
         // Add sim camera
         var cameraProperties = new SimCameraProperties();
-        cameraProperties.setCalibration(1280, 800, Rotation2d.fromDegrees(166)); // Arducam OV9281
+        cameraProperties.setCalibration(1280, 800, Rotation2d.fromDegrees(80)); // Arducam OV9281
         cameraProperties.setCalibError(0.25, 0.125);
         cameraProperties.setFPS(30.0);
         cameraProperties.setAvgLatencyMs(15.0);
