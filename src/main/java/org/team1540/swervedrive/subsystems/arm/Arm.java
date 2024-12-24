@@ -1,20 +1,21 @@
 package org.team1540.swervedrive.subsystems.arm;
 
 import edu.wpi.first.math.MathUtil;
-import edu.wpi.first.math.controller.ArmFeedforward;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.*;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.Logger;
+import org.team1540.swervedrive.Constants;
+import org.team1540.swervedrive.Robot;
+import org.team1540.swervedrive.RobotState;
+import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.util.ClosedLoopConfig;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
-
-import java.util.function.Supplier;
 
 public class Arm extends SubsystemBase {
     public static int LEADER_ID = 20;
@@ -26,13 +27,34 @@ public class Arm extends SubsystemBase {
     public static final Rotation2d MIN_ANGLE = Rotation2d.fromDegrees(5.8);
     public static final Rotation2d MAX_ANGLE = Rotation2d.fromDegrees(110.0);
 
-    public static final ClosedLoopConfig GAINS =
-            new ClosedLoopConfig(new PIDController(90.0, 0.0, 0.0), new ArmFeedforward(0.0, 0.0, 0.0));
+    public static final Translation3d PIVOT_ORIGIN = new Translation3d(-0.238, 0, 0.298);
+    public static final double LENGTH_METERS = Units.inchesToMeters(25.866);
 
-    public static final Translation2d ORIGIN = new Translation2d(-0.238, 0.298);
+    public static final double ENCODER_OFFSET_ROTS = 0.5;
 
-    public static final Supplier<Rotation2d> STOW = () -> MIN_ANGLE;
-    public static final Supplier<Rotation2d> AMP = () -> Rotation2d.fromDegrees(100.0);
+    public static final ClosedLoopConfig GAINS = new ClosedLoopConfig(
+            45.0,
+            0.0,
+            0.0,
+            0.0,
+            Constants.currentMode == Constants.Mode.SIM ? 1.83527 : 11.53186,
+            0.0,
+            0.0,
+            ClosedLoopConfig.GravityFFType.ARM);
+    public static final double MAX_VELOCITY_RPS = 1.0;
+    public static final double MAX_ACCELERATION_RPS2 = 2.54;
+
+    public enum ArmState {
+        STOW(() -> MIN_ANGLE),
+        AMP(() -> Rotation2d.fromDegrees(100.0)),
+        SPEAKER(() -> RobotState.getInstance().getSpeakerAimingParameters().armAngle());
+
+        public final Supplier<Rotation2d> angleSupplier;
+
+        ArmState(Supplier<Rotation2d> angleSupplier) {
+            this.angleSupplier = angleSupplier;
+        }
+    }
 
     private static final LoggedTunableNumber kP = new LoggedTunableNumber("Arm/kP", GAINS.kP);
     private static final LoggedTunableNumber kI = new LoggedTunableNumber("Arm/kI", GAINS.kI);
@@ -46,10 +68,11 @@ public class Arm extends SubsystemBase {
     private final ArmIO io;
     private final ArmIOInputsAutoLogged inputs = new ArmIOInputsAutoLogged();
 
-    private Supplier<Rotation2d> setpoint = STOW;
+    private Supplier<Rotation2d> setpoint = ArmState.STOW.angleSupplier;
 
     private final Alert leaderDisconnectedAlert = new Alert("Arm leader motor disconnected", Alert.AlertType.kError);
-    private final Alert follwerDisconnectedAlert = new Alert("Arm leader follower disconnected", Alert.AlertType.kError);
+    private final Alert follwerDisconnectedAlert =
+            new Alert("Arm leader follower disconnected", Alert.AlertType.kError);
     private final Alert encoderDisconnectedAlert = new Alert("Arm encoder disconnected", Alert.AlertType.kError);
 
     private Arm(ArmIO io) {
@@ -63,15 +86,20 @@ public class Arm extends SubsystemBase {
         io.updateInputs(inputs);
         Logger.processInputs("Arm", inputs);
 
+        Rotation2d currentSetpoint = setpoint.get();
+        Logger.recordOutput("Arm/setpoint", currentSetpoint);
+
         if (DriverStation.isDisabled()) stop();
-        else {
-            Rotation2d currentSetpoint = setpoint.get();
-            io.setPosition(currentSetpoint);
-            Logger.recordOutput("Arm/setpoint", currentSetpoint);
-        }
+        else io.setPosition(currentSetpoint);
+
+        if (Robot.isSimulation()) logMechanismPoses();
 
         LoggedTunableNumber.ifChanged(hashCode(), () -> io.setPID(kP.get(), kI.get(), kD.get()), kP, kI, kD);
         LoggedTunableNumber.ifChanged(hashCode(), () -> io.setFF(kS.get(), kV.get(), kG.get()), kS, kV, kG);
+
+        leaderDisconnectedAlert.set(!inputs.leaderConnected);
+        follwerDisconnectedAlert.set(!inputs.followerConnected);
+        encoderDisconnectedAlert.set(!inputs.encoderConnected);
     }
 
     public void stop() {
@@ -90,13 +118,47 @@ public class Arm extends SubsystemBase {
         this.setpoint = setpoint;
     }
 
-    /** Returns a non-blocking command that sets the arm setpoint and ends */
-    public Command setpointCommand(Supplier<Rotation2d> setpoint) {
-        return Commands.runOnce(() -> runSetpoint(setpoint), this);
+    private void logMechanismPoses() {
+        Pose3d currentPose = new Pose3d(PIVOT_ORIGIN, new Rotation3d(0.0, -inputs.position.getRadians(), 0.0));
+        Pose3d goalPose =
+                new Pose3d(PIVOT_ORIGIN, new Rotation3d(0.0, -setpoint.get().getRadians(), 0.0));
+
+        Logger.recordOutput("Arm/Mechanism3d/measured", currentPose);
+        Logger.recordOutput("Arm/Mechanism3d/goal", goalPose);
     }
 
-    /** Returns a blocking command that sets the arm setpoint and waits until the arm is at the setpoint */
-    public Command blockingSetpointCommand(Supplier<Rotation2d> setpoint) {
-        return setpointCommand(setpoint).andThen(Commands.waitUntil(this::atGoal));
+    /** Returns a non-blocking command that sets the arm setpoint and ends */
+    public Command requestStateCommand(ArmState state) {
+        return Commands.runOnce(() -> runSetpoint(state.angleSupplier), this);
+    }
+
+    /** Returns a blocking command that sets the arm state and waits for the arm to reach that state.*/
+    public Command blockingStateCommand(ArmState state) {
+        return requestStateCommand(state).andThen(Commands.waitUntil(this::atGoal));
+    }
+
+    public Command feedforwardCharacterization() {
+        return CharacterizationCommands.feedforward(io::setVoltage, () -> inputs.velocityRPS, this);
+    }
+
+    public static Arm createReal() {
+        if (Constants.currentMode != Constants.Mode.REAL) {
+            DriverStation.reportWarning("Using real arm on simulated robot", false);
+        }
+        return new Arm(new ArmIOTalonFX());
+    }
+
+    public static Arm createSim() {
+        if (Constants.currentMode == Constants.Mode.REAL) {
+            DriverStation.reportWarning("Using simulated arm on real robot", false);
+        }
+        return new Arm(new ArmIOSim());
+    }
+
+    public static Arm createDummy() {
+        if (Constants.currentMode == Constants.Mode.REAL) {
+            DriverStation.reportWarning("Using dummy arm on real robot", false);
+        }
+        return new Arm(new ArmIO() {});
     }
 }

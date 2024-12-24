@@ -3,16 +3,20 @@ package org.team1540.swervedrive.subsystems.drive;
 import com.ctre.phoenix6.BaseStatusSignal;
 import com.ctre.phoenix6.StatusCode;
 import com.ctre.phoenix6.StatusSignal;
+import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.controls.*;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.ParentDevice;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import edu.wpi.first.math.filter.Debouncer;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.*;
 import java.util.Queue;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import org.team1540.swervedrive.generated.TunerConstants;
 import org.team1540.swervedrive.util.swerve.ModuleHW;
 
@@ -61,6 +65,8 @@ public class ModuleIOTalonFX implements ModuleIO {
     private final StatusSignal<Voltage> turnAppliedVolts;
     private final StatusSignal<Current> turnCurrent;
     private final StatusSignal<Temperature> turnTemp;
+
+    private final Executor brakeModeExecutor = Executors.newFixedThreadPool(4);
 
     // Connection debouncers
     private final Debouncer driveConnectedDebounce = new Debouncer(0.5);
@@ -189,17 +195,25 @@ public class ModuleIOTalonFX implements ModuleIO {
 
     @Override
     public void setDriveBrakeMode(boolean enabled) {
-        driveVoltageReq.OverrideBrakeDurNeutral = enabled;
-        driveTorqueReq.OverrideCoastDurNeutral = !enabled;
-        driveVelocityVoltageReq.OverrideBrakeDurNeutral = enabled;
-        driveVelocityTorqueReq.OverrideCoastDurNeutral = !enabled;
+        brakeModeExecutor.execute(() -> {
+            synchronized (drive) {
+                MotorOutputConfigs config = new MotorOutputConfigs();
+                drive.getConfigurator().refresh(config);
+                config.NeutralMode = enabled ? NeutralModeValue.Brake : NeutralModeValue.Coast;
+                drive.getConfigurator().apply(config);
+            }
+        });
     }
 
     @Override
     public void setTurnBrakeMode(boolean enabled) {
-        turnVoltageReq.OverrideBrakeDurNeutral = enabled;
-        turnTorqueReq.OverrideCoastDurNeutral = !enabled;
-        turnPositionVoltageReq.OverrideBrakeDurNeutral = enabled;
-        turnPositionTorqueReq.OverrideCoastDurNeutral = !enabled;
+        brakeModeExecutor.execute(() -> {
+            synchronized (turn) {
+                MotorOutputConfigs config = new MotorOutputConfigs();
+                turn.getConfigurator().refresh(config);
+                config.NeutralMode = enabled ? NeutralModeValue.Brake : NeutralModeValue.Coast;
+                turn.getConfigurator().apply(config);
+            }
+        });
     }
 }

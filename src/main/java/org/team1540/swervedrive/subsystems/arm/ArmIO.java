@@ -8,9 +8,11 @@ public interface ArmIO {
     class ArmIOInputs {
         public boolean leaderConnected = false;
         public boolean followerConnected = false;
+        public boolean encoderConnected = false;
 
         public Rotation2d position = Rotation2d.kZero;
-        public double velocityRadsPerSec = 0.0;
+        public Rotation2d absolutePosition = Rotation2d.kZero;
+        public double velocityRPS = 0.0;
         public double[] appliedVolts = new double[] {0.0, 0.0};
         public double[] supplyCurrentAmps = new double[] {0.0, 0.0};
         public double[] statorCurrentAmps = new double[] {0.0, 0.0};
@@ -27,5 +29,5 @@ public interface ArmIO {
 
     default void setPID(double p, double i, double d) {}
 
-    default void setFF(double v, double s, double g) {}
+    default void setFF(double s, double v, double g) {}
 }

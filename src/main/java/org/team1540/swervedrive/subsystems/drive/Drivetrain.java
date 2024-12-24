@@ -68,8 +68,12 @@ public class Drivetrain extends SubsystemBase {
     };
 
     private static boolean hasInstance;
-
     static final Lock odometryLock = new ReentrantLock();
+
+    private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 15.0);
+    private static final LoggedTunableNumber headingKI = new LoggedTunableNumber("Drivetrain/Heading/kI", 0.0);
+    private static final LoggedTunableNumber headingKD = new LoggedTunableNumber("Drivetrain/Heading/kD", 0.85);
+
     private final GyroIO gyroIO;
     private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
     private final Module[] modules = new Module[4]; // FL, FR, BL, BR
@@ -88,9 +92,9 @@ public class Drivetrain extends SubsystemBase {
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
 
     private final ProfiledPIDController headingController = new ProfiledPIDController(
-            7.5,
-            0.0,
-            0.0,
+            headingKP.get(),
+            headingKI.get(),
+            headingKD.get(),
             new TrapezoidProfile.Constraints(MAX_ANGULAR_SPEED_RADS_PER_SEC, MAX_ANGULAR_SPEED_RADS_PER_SEC * 3));
 
     private final Alert gyroDisconnected = new Alert("Gyro disconnected!", Alert.AlertType.kWarning);
@@ -153,9 +157,6 @@ public class Drivetrain extends SubsystemBase {
 
         Logger.processInputs("Drivetrain/Gyro", gyroInputs);
 
-        // Stop moving when disabled
-        if (DriverStation.isDisabled()) for (Module module : modules) module.stop();
-
         // Update odometry
         double[] sampleTimestamps = modules[0].getOdometryTimestamps(); // All signals are sampled together
         int sampleCount = sampleTimestamps.length;
@@ -209,19 +210,37 @@ public class Drivetrain extends SubsystemBase {
                 gyroInputs.connected ? gyroInputs.yawVelocityRadPerSec : speeds.omegaRadiansPerSecond;
         RobotState.getInstance().addVelocityData(speeds);
 
-        // Run modules based on current drive mode
-        if (isFFCharacterizing) {
-            for (Module module : modules) module.runCharacterization(ffCharacterizationInput);
-        } else {
-            SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(desiredSpeeds);
-            for (int i = 0; i < 4; i++) {
-                modules[i].runSetpoint(setpointStates[i]);
+        if (DriverStation.isEnabled()) {
+            // Run modules based on current drive mode
+            if (isFFCharacterizing) {
+                for (Module module : modules) module.runCharacterization(ffCharacterizationInput);
+            } else {
+                SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(desiredSpeeds);
+                for (int i = 0; i < 4; i++) {
+                    modules[i].runSetpoint(setpointStates[i]);
+                }
+                Logger.recordOutput("Drivetrain/SwerveStates/Setpoints", setpointStates);
             }
-            Logger.recordOutput("Drivetrain/SwerveStates/Setpoints", setpointStates);
+        } else {
+            for (Module module : modules) module.stop(); // Stop modules when disabled
+            Logger.recordOutput(
+                    "Drivetrain/SwerveStates/Setpoints",
+                    new SwerveModuleState(),
+                    new SwerveModuleState(),
+                    new SwerveModuleState(),
+                    new SwerveModuleState());
         }
 
         // Update gyro alerts
         gyroDisconnected.set(Robot.isReal() && !gyroInputs.connected);
+
+        // Update tunable numbers
+        LoggedTunableNumber.ifChanged(
+                hashCode(),
+                () -> headingController.setPID(headingKP.get(), headingKI.get(), headingKD.get()),
+                headingKP,
+                headingKI,
+                headingKD);
     }
 
     /**
@@ -338,7 +357,7 @@ public class Drivetrain extends SubsystemBase {
                                 / MAX_ANGULAR_SPEED_RADS_PER_SEC,
                         fieldRelative)
                 .alongWith(Commands.run(() -> Logger.recordOutput("Drivetrain/HeadingGoal", heading.get())))
-                .until(() -> controller.getRightX() >= 0.1);
+                .until(() -> Math.abs(controller.getRightX()) >= 0.1);
     }
 
     public Command feedforwardCharacterization() {

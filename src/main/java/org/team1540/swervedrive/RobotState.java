@@ -17,14 +17,20 @@ import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
+import org.team1540.swervedrive.util.LoggedTunableNumber;
 
 public class RobotState {
+    public record AimingParameters(Rotation2d driveHeading, Rotation2d armAngle, double effectiveDistanceMeters) {}
+
     private static RobotState instance = null;
 
     public static RobotState getInstance() {
         if (instance == null) instance = new RobotState();
         return instance;
     }
+
+    private static final LoggedTunableNumber aimingLookaheadSeconds =
+            new LoggedTunableNumber("Aiming/lookaheadSeconds", 0.1);
 
     private boolean poseEstimatorConfigured = false;
     private SwerveDrivePoseEstimator poseEstimator;
@@ -34,6 +40,9 @@ public class RobotState {
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
         new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
     };
+
+    private AimingParameters latestSpeakerParameters = null;
+    private AimingParameters latestPassingParameters = null;
 
     private boolean driveSimConfigured = false;
     private SwerveDriveSimulation driveSim;
@@ -55,6 +64,7 @@ public class RobotState {
                     VecBuilder.fill(0.5, 0.5, 5.0));
             poseEstimatorConfigured = true;
         }
+        invalidateAimingCache();
     }
 
     public void addOdometryObservation(SwerveModulePosition[] modulePositions, Rotation2d gyroAngle, double timestamp) {
@@ -63,6 +73,7 @@ public class RobotState {
         if (poseEstimatorConfigured) {
             poseEstimator.updateWithTime(timestamp, gyroAngle, modulePositions);
             field.setRobotPose(getRobotPose());
+            invalidateAimingCache();
         }
     }
 
@@ -70,6 +81,7 @@ public class RobotState {
         if (poseEstimatorConfigured) {
             poseEstimator.setVisionMeasurementStdDevs(stdDevs);
             poseEstimator.addVisionMeasurement(observation.pose().toPose2d(), observation.timestampSecs());
+            invalidateAimingCache();
         }
     }
 
@@ -89,6 +101,7 @@ public class RobotState {
     public void resetPose(Pose2d newPose) {
         if (poseEstimatorConfigured) poseEstimator.resetPosition(lastGyroRotation, lastModulePositions, newPose);
         if (driveSimConfigured) driveSim.setSimulationWorldPose(newPose);
+        invalidateAimingCache();
     }
 
     @AutoLogOutput(key = "Odometry/EstimatedPose")
@@ -112,6 +125,47 @@ public class RobotState {
         var rotated = new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
                 .rotateBy(getRotation());
         return new ChassisSpeeds(rotated.getX(), rotated.getY(), robotVelocity.omegaRadiansPerSecond);
+    }
+
+    public Pose2d predictRobotPose(double lookaheadSeconds) {
+        if (!poseEstimatorConfigured) return Pose2d.kZero;
+        ChassisSpeeds velocity = getFieldRelativeVelocity();
+        Pose2d pose = getRobotPose();
+        return new Pose2d(
+                pose.getX() + velocity.vxMetersPerSecond * lookaheadSeconds,
+                pose.getY() + velocity.vyMetersPerSecond * lookaheadSeconds,
+                pose.getRotation().plus(Rotation2d.fromRadians(velocity.omegaRadiansPerSecond * lookaheadSeconds)));
+    }
+
+    private void invalidateAimingCache() {
+        latestSpeakerParameters = null;
+        latestPassingParameters = null;
+    }
+
+    private static final double ANGLE_COEFF = 57.254371165197;
+    private static final double ANGLE_EXP = -0.593140189605718;
+
+    private Rotation2d calculateSpeakerArmAngle(double distanceMeters) {
+        return Rotation2d.fromDegrees(ANGLE_COEFF * Math.pow(distanceMeters, ANGLE_EXP));
+    }
+
+    @AutoLogOutput(key = "Aiming/Speaker/Parameters")
+    public AimingParameters getSpeakerAimingParameters() {
+        if (latestSpeakerParameters != null) return latestSpeakerParameters;
+
+        Pose2d predictedPose = predictRobotPose(aimingLookaheadSeconds.get());
+        Translation2d robotToTargetTranslation =
+                FieldConstants.getSpeakerPose().getTranslation().minus(predictedPose.getTranslation());
+        Rotation2d driveHeading = robotToTargetTranslation.getAngle();
+        double effectiveDistanceMeters = robotToTargetTranslation.getNorm();
+
+        Logger.recordOutput("Aiming/Speaker/PredictedPose", predictedPose);
+        Logger.recordOutput("Aiming/Speaker/EffectiveDistanceMeters", effectiveDistanceMeters);
+        Logger.recordOutput("Aiming/Speaker/GoalPose", new Pose2d(predictedPose.getTranslation(), driveHeading));
+
+        latestSpeakerParameters = new AimingParameters(
+                driveHeading, calculateSpeakerArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
+        return latestSpeakerParameters;
     }
 
     public void configureDriveSim(SwerveDriveSimulation driveSim) {

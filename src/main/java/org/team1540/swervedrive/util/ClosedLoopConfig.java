@@ -2,10 +2,8 @@ package org.team1540.swervedrive.util;
 
 import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.signals.GravityTypeValue;
-import edu.wpi.first.math.controller.ArmFeedforward;
-import edu.wpi.first.math.controller.ElevatorFeedforward;
-import edu.wpi.first.math.controller.PIDController;
-import edu.wpi.first.math.controller.SimpleMotorFeedforward;
+import edu.wpi.first.math.controller.*;
+import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.wpilibj.DriverStation;
 import org.team1540.swervedrive.Constants;
 
@@ -98,6 +96,10 @@ public class ClosedLoopConfig {
         return createPIDController(Constants.LOOP_PERIOD_SECS);
     }
 
+    public ProfiledPIDController createProfiledPIDController(TrapezoidProfile.Constraints constraints) {
+        return new ProfiledPIDController(kP, kI, kD, constraints);
+    }
+
     public SimpleMotorFeedforward createMotorFF() {
         return new SimpleMotorFeedforward(kS, kV, kA);
     }
@@ -106,14 +108,14 @@ public class ClosedLoopConfig {
         if (gravityFFType != GravityFFType.ARM) {
             DriverStation.reportError("Trying to create arm feedforward with non-arm config", true);
         }
-        return new ArmFeedforward(kS, kV, kA, kG);
+        return new ArmFeedforward(kS, kG, kV, kA);
     }
 
     public ElevatorFeedforward createElevatorFF() {
         if (gravityFFType != GravityFFType.ELEVATOR) {
             DriverStation.reportError("Trying to create elevator feedforward with non-elevator config", true);
         }
-        return new ElevatorFeedforward(kS, kV, kA, kG);
+        return new ElevatorFeedforward(kS, kG, kV, kA);
     }
 
     public Slot0Configs createCTREConfigs() {
