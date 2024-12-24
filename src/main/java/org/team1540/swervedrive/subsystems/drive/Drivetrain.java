@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
-import org.ironmaple.simulation.drivesims.COTS;
+import org.ironmaple.simulation.drivesims.GyroSimulation;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
@@ -397,7 +397,7 @@ public class Drivetrain extends SubsystemBase {
                 .withCustomModuleTranslations(MODULE_TRANSLATIONS)
                 .withBumperSize(
                         Meters.of(Constants.BUMPER_LENGTH_X_METERS), Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
-                .withGyro(COTS.ofPigeon2())
+                .withGyro(() -> new GyroSimulation(0.12 / 120, 0.02))
                 .withSwerveModule(() -> new SwerveModuleSimulation(
                         DCMotor.getKrakenX60Foc(1),
                         DCMotor.getFalcon500(1),
