@@ -5,6 +5,7 @@ import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.util.Units;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
 
@@ -15,6 +16,21 @@ public final class FieldConstants {
     public static final double X_LENGTH_METERS = TAG_LAYOUT.getFieldLength();
     public static final double Y_LENGTH_METERS = TAG_LAYOUT.getFieldWidth();
 
+    public static boolean inField(Pose2d pose) {
+        return pose.getX() <= FieldConstants.X_LENGTH_METERS
+                && pose.getX() >= 0
+                && pose.getY() <= FieldConstants.Y_LENGTH_METERS
+                && pose.getY() >= 0;
+    }
+
+    public static final double BLUE_WING_X_METERS = Units.inchesToMeters(229.201);
+    public static final double RED_WING_X_METERS = X_LENGTH_METERS - BLUE_WING_X_METERS;
+
+    public static boolean inWing(Pose2d pose) {
+        if (!inField(pose)) return false;
+        return AllianceFlipUtil.maybeFlipPose(pose).getX() <= BLUE_WING_X_METERS;
+    }
+
     public static final Pose2d MIDFIELD = new Pose2d(X_LENGTH_METERS / 2, Y_LENGTH_METERS / 2, Rotation2d.kZero);
 
     private static final Pose2d BLUE_SPEAKER =
@@ -23,5 +39,12 @@ public final class FieldConstants {
 
     public static Pose2d getSpeakerPose() {
         return AllianceFlipUtil.shouldFlip() ? RED_SPEAkER : BLUE_SPEAKER;
+    }
+
+    private static final Pose2d BLUE_PASS_TARGET = BLUE_SPEAKER.plus(new Transform2d(0.5, 1.0, Rotation2d.kZero));
+    private static final Pose2d RED_PASS_TARGET = FlippingUtil.flipFieldPose(BLUE_PASS_TARGET);
+
+    public static Pose2d getPassingTarget() {
+        return AllianceFlipUtil.shouldFlip() ? RED_PASS_TARGET : BLUE_PASS_TARGET;
     }
 }

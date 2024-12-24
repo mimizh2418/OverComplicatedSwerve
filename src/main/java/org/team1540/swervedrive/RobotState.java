@@ -1,21 +1,25 @@
 package org.team1540.swervedrive;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
+import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
 
@@ -41,6 +45,8 @@ public class RobotState {
         new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
     };
 
+    private final InterpolatingDoubleTreeMap passingArmAngleInterpolator = new InterpolatingDoubleTreeMap();
+
     private AimingParameters latestSpeakerParameters = null;
     private AimingParameters latestPassingParameters = null;
 
@@ -51,6 +57,10 @@ public class RobotState {
 
     private RobotState() {
         SmartDashboard.putData(field);
+
+        passingArmAngleInterpolator.put(Units.feetToMeters(33.52713263758169), 35.0);
+        passingArmAngleInterpolator.put(Units.feetToMeters(28.31299227120627), 39.0);
+        passingArmAngleInterpolator.put(Units.feetToMeters(25.587026383435525), 48.0);
     }
 
     public void configurePoseEstimation(SwerveDriveKinematics kinematics) {
@@ -146,7 +156,10 @@ public class RobotState {
     private static final double ANGLE_EXP = -0.593140189605718;
 
     private Rotation2d calculateSpeakerArmAngle(double distanceMeters) {
-        return Rotation2d.fromDegrees(ANGLE_COEFF * Math.pow(distanceMeters, ANGLE_EXP));
+        return Rotation2d.fromDegrees(MathUtil.clamp(
+                ANGLE_COEFF * Math.pow(distanceMeters, ANGLE_EXP),
+                Arm.MIN_ANGLE.getDegrees(),
+                Arm.ArmState.SUBWOOFER.angleSupplier.get().getDegrees()));
     }
 
     @AutoLogOutput(key = "Aiming/Speaker/Parameters")
@@ -166,6 +179,29 @@ public class RobotState {
         latestSpeakerParameters = new AimingParameters(
                 driveHeading, calculateSpeakerArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
         return latestSpeakerParameters;
+    }
+
+    private Rotation2d calculatePassingArmAngle(double distanceMeters) {
+        return Rotation2d.fromDegrees(passingArmAngleInterpolator.get(distanceMeters));
+    }
+
+    @AutoLogOutput(key = "Aiming/Passing/Parameters")
+    public AimingParameters getPassingAimingParameters() {
+        if (latestPassingParameters != null) return latestPassingParameters;
+
+        Pose2d predictedPose = predictRobotPose(aimingLookaheadSeconds.get());
+        Translation2d robotToTargetTranslation =
+                FieldConstants.getPassingTarget().getTranslation().minus(predictedPose.getTranslation());
+        Rotation2d driveHeading = robotToTargetTranslation.getAngle();
+        double effectiveDistanceMeters = robotToTargetTranslation.getNorm();
+
+        Logger.recordOutput("Aiming/Passing/PredictedPose", predictedPose);
+        Logger.recordOutput("Aiming/Passing/EffectiveDistanceMeters", effectiveDistanceMeters);
+        Logger.recordOutput("Aiming/Passing/GoalPose", new Pose2d(predictedPose.getTranslation(), driveHeading));
+
+        latestPassingParameters = new AimingParameters(
+                driveHeading, calculatePassingArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
+        return latestPassingParameters;
     }
 
     public void configureDriveSim(SwerveDriveSimulation driveSim) {

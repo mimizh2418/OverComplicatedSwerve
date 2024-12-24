@@ -11,22 +11,22 @@ public class AllianceFlipUtil {
         return DriverStation.getAlliance().orElse(null) == DriverStation.Alliance.Red;
     }
 
-    public static Pose2d flipPose(Pose2d pose) {
+    public static Pose2d maybeFlipPose(Pose2d pose) {
         if (shouldFlip()) return FlippingUtil.flipFieldPose(pose);
         return pose;
     }
 
-    public static Translation2d flipTranslation(Translation2d translation) {
+    public static Translation2d maybeFlipTranslation(Translation2d translation) {
         if (shouldFlip()) return FlippingUtil.flipFieldPosition(translation);
         return translation;
     }
 
-    public static Rotation2d flipRotation(Rotation2d rotation) {
+    public static Rotation2d maybeFlipRotation(Rotation2d rotation) {
         if (shouldFlip()) return FlippingUtil.flipFieldRotation(rotation);
         return rotation;
     }
 
-    public static Rotation2d reverseRotation(Rotation2d rotation) {
+    public static Rotation2d maybeReverseRotation(Rotation2d rotation) {
         if (shouldFlip()) return rotation.plus(Rotation2d.k180deg);
         return rotation;
     }

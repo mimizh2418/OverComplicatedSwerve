@@ -170,10 +170,7 @@ public class AprilTagVision extends SubsystemBase {
                 && !(observation.numTags == 1 && observation.ambiguity > MAX_AMBIGUITY)
                 && observation.avgTagDistanceMeters < MAX_AVG_TAG_DISTANCE_METERS
                 && Math.abs(observation.pose.getZ()) < MAX_Z_ERROR_METERS
-                && observation.pose.getX() <= FieldConstants.X_LENGTH_METERS
-                && observation.pose.getX() >= 0
-                && observation.pose.getY() <= FieldConstants.Y_LENGTH_METERS
-                && observation.pose.getY() >= 0;
+                && FieldConstants.inField(observation.pose.toPose2d());
     }
 
     public static AprilTagVision createReal() {

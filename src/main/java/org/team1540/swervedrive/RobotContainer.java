@@ -8,7 +8,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
-import org.team1540.swervedrive.commands.ScoringCommands;
+import org.team1540.swervedrive.commands.SuperstructureCommands;
 import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.drive.*;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
@@ -85,23 +85,28 @@ public class RobotContainer {
         driver.start().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientationManual));
 
         driver.povUp()
-                .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.kZero), () -> true));
+                .onTrue(drivetrain.teleopDriveWithHeadingCommand(
+                        driver.getHID(), () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kZero), () -> true));
         driver.povLeft()
-                .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.kCCW_90deg), () -> true));
+                .onTrue(drivetrain.teleopDriveWithHeadingCommand(
+                        driver.getHID(),
+                        () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kCCW_90deg),
+                        () -> true));
         driver.povDown()
-                .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.k180deg), () -> true));
+                .onTrue(drivetrain.teleopDriveWithHeadingCommand(
+                        driver.getHID(), () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.k180deg), () -> true));
         driver.povRight()
-                .toggleOnTrue(drivetrain.teleopDriveWithHeadingCommand(
-                        driver.getHID(), () -> AllianceFlipUtil.reverseRotation(Rotation2d.kCW_90deg), () -> true));
+                .onTrue(drivetrain.teleopDriveWithHeadingCommand(
+                        driver.getHID(),
+                        () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kCW_90deg),
+                        () -> true));
 
-        Command speakerAimCommand =
-                ScoringCommands.teleopSpeakerAimCommand(driver.getHID(), drivetrain, arm, () -> true);
-        Command ampStageCommand = ScoringCommands.teleopAmpStageCommand(driver.getHID(), drivetrain, arm, () -> true);
-        driver.rightBumper().toggleOnTrue(speakerAimCommand);
-        driver.y().toggleOnTrue(ampStageCommand);
+        Command aimCommand =
+                SuperstructureCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, () -> true);
+        Command stageAmpCommand =
+                SuperstructureCommands.teleopStageAmpCommand(driver.getHID(), drivetrain, arm, () -> true);
+        driver.rightBumper().toggleOnTrue(aimCommand);
+        driver.y().toggleOnTrue(stageAmpCommand);
     }
 
     /**
