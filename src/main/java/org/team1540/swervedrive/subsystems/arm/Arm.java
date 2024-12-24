@@ -74,6 +74,8 @@ public class Arm extends SubsystemBase {
     @AutoLogOutput(key = "Arm/GoalState")
     private ArmState goalState = ArmState.STOW;
 
+    private boolean isCharacterizing = false;
+
     private final Alert leaderDisconnectedAlert = new Alert("Arm leader motor disconnected", Alert.AlertType.kError);
     private final Alert follwerDisconnectedAlert =
             new Alert("Arm leader follower disconnected", Alert.AlertType.kError);
@@ -94,7 +96,7 @@ public class Arm extends SubsystemBase {
         Logger.recordOutput("Arm/Setpoint", currentSetpoint);
 
         if (DriverStation.isDisabled()) stop();
-        else io.setPosition(currentSetpoint);
+        else if (!isCharacterizing) io.setPosition(currentSetpoint);
 
         RobotState.getInstance().addArmAngleData(inputs.position, goalState.angleSupplier.get());
 
@@ -134,7 +136,9 @@ public class Arm extends SubsystemBase {
     }
 
     public Command feedforwardCharacterization() {
-        return CharacterizationCommands.feedforward(io::setVoltage, () -> inputs.velocityRPS, this);
+        return CharacterizationCommands.feedforward(io::setVoltage, () -> inputs.velocityRPS, this)
+                .beforeStarting(() -> isCharacterizing = true)
+                .finallyDo(() -> isCharacterizing = false);
     }
 
     public static Arm createReal() {

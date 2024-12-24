@@ -356,6 +356,9 @@ public class Drivetrain extends SubsystemBase {
                                         heading.get().getRadians())
                                 / MAX_ANGULAR_SPEED_RADS_PER_SEC,
                         fieldRelative)
+                .beforeStarting(() -> headingController.reset(
+                        RobotState.getInstance().getRotation().getRadians(),
+                        RobotState.getInstance().getRobotVelocity().omegaRadiansPerSecond))
                 .alongWith(Commands.run(() -> Logger.recordOutput("Drivetrain/HeadingGoal", heading.get())))
                 .until(() -> Math.abs(controller.getRightX()) >= 0.1);
     }

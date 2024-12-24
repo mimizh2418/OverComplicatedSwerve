@@ -55,6 +55,9 @@ public class RobotState {
     private Rotation2d currentArmAngle = Arm.MIN_ANGLE;
     private Rotation2d goalArmAngle = Arm.MIN_ANGLE;
 
+    private double shooterLeftVelocityRPM = 0.0;
+    private double shooterRightVelocityRPM = 0.0;
+
     private boolean driveSimConfigured = false;
     private SwerveDriveSimulation driveSim;
 
@@ -63,9 +66,9 @@ public class RobotState {
     private RobotState() {
         SmartDashboard.putData(field);
 
-        passingArmAngleInterpolator.put(Units.feetToMeters(33.52713263758169), 35.0);
-        passingArmAngleInterpolator.put(Units.feetToMeters(28.31299227120627), 39.0);
-        passingArmAngleInterpolator.put(Units.feetToMeters(25.587026383435525), 48.0);
+        passingArmAngleInterpolator.put(Units.feetToMeters(33.52713263758169), 43.0);
+        passingArmAngleInterpolator.put(Units.feetToMeters(28.31299227120627), 47.0);
+        passingArmAngleInterpolator.put(Units.feetToMeters(25.587026383435525), 56.0);
     }
 
     public void configurePoseEstimation(SwerveDriveKinematics kinematics) {
@@ -214,6 +217,11 @@ public class RobotState {
         goalArmAngle = armGoalAngle;
     }
 
+    public void addShooterVelocityData(double leftVelocityRPM, double rightVelocityRPM) {
+        this.shooterLeftVelocityRPM = leftVelocityRPM;
+        this.shooterRightVelocityRPM = rightVelocityRPM;
+    }
+
     public void updateMechanismVisualization() {
         Pose3d currentPose = new Pose3d(Arm.PIVOT_ORIGIN, new Rotation3d(0.0, -currentArmAngle.getRadians(), 0.0));
         Pose3d goalPose = new Pose3d(Arm.PIVOT_ORIGIN, new Rotation3d(0.0, -goalArmAngle.getRadians(), 0.0));
@@ -243,9 +251,24 @@ public class RobotState {
         return driveSim.getSimulatedDriveTrainPose();
     }
 
+    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 20.0 / 6400;
+
     public void simShootNote() {
-        // TODO implement
         if (!driveSimConfigured) return;
+        GamePieceProjectile note = new NoteOnFly(
+                        getSimulatedRobotPose().getTranslation(),
+                        Arm.PIVOT_ORIGIN
+                                .toTranslation2d()
+                                .plus(new Translation2d(currentArmAngle.getCos() * Arm.LENGTH_METERS, 0.0)),
+                        driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative(),
+                        getSimulatedRobotPose().getRotation(),
+                        currentArmAngle.getSin() * Arm.LENGTH_METERS,
+                        (shooterLeftVelocityRPM + shooterRightVelocityRPM) / 2 * NOTE_VELOCITY_COEFF_MPS_PER_RPM,
+                        currentArmAngle.plus(Rotation2d.fromDegrees(5.0)).getRadians())
+                .asSpeakerShotNote(() -> {})
+                .enableBecomeNoteOnFieldAfterTouchGround()
+                .withTouchGroundHeight(0.1);
+        SimulatedArena.getInstance().addGamePieceProjectile(note);
     }
 
     public void simAmpNote() {
@@ -259,7 +282,7 @@ public class RobotState {
                                                         .plus(Rotation2d.fromDegrees(20))
                                                         .getCos()
                                                 * (Arm.LENGTH_METERS + 0.2),
-                                        0.)),
+                                        0.0)),
                         driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative(),
                         getSimulatedRobotPose().getRotation(),
                         currentArmAngle.plus(Rotation2d.fromDegrees(20)).getSin() * (Arm.LENGTH_METERS + 0.2),

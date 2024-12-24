@@ -21,7 +21,7 @@ public class Indexer extends SubsystemBase {
     public static final double INTAKE_WIDTH_METERS = Units.inchesToMeters(25.716);
 
     public enum IndexerState {
-        STOP(0.0, 0.0),
+        IDLE(0.0, 0.0),
         INTAKE(1.0, 0.0),
         EJECT(-1.0, -1.0),
         FEED_SHOOTER(1.0, 1.0),
@@ -42,7 +42,7 @@ public class Indexer extends SubsystemBase {
     private final IndexerIOInputsAutoLogged inputs = new IndexerIOInputsAutoLogged();
 
     @AutoLogOutput(key = "Indexer/GoalState")
-    private IndexerState goalState = IndexerState.STOP;
+    private IndexerState goalState = IndexerState.IDLE;
 
     private final Alert intakeDisconnectedAlert = new Alert("Intake motor is disconnected", Alert.AlertType.kError);
     private final Alert feederDisconnectedAlert = new Alert("Feeder motor is disconnected", Alert.AlertType.kError);
@@ -70,7 +70,7 @@ public class Indexer extends SubsystemBase {
     }
 
     public void stop() {
-        setGoal(IndexerState.STOP);
+        setGoal(IndexerState.IDLE);
     }
 
     public boolean hasNote() {

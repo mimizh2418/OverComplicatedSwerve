@@ -13,6 +13,7 @@ import org.team1540.swervedrive.commands.SuperstructureCommands;
 import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.drive.*;
 import org.team1540.swervedrive.subsystems.indexer.Indexer;
+import org.team1540.swervedrive.subsystems.shooter.Shooter;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
 
@@ -29,6 +30,7 @@ public class RobotContainer {
     public final Drivetrain drivetrain;
     public final Arm arm;
     public final Indexer indexer;
+    public final Shooter shooter;
     public final AprilTagVision aprilTagVision;
 
     // Controller
@@ -45,6 +47,7 @@ public class RobotContainer {
                 drivetrain = Drivetrain.createReal();
                 indexer = Indexer.createReal();
                 arm = Arm.createReal();
+                shooter = Shooter.createReal();
                 aprilTagVision = AprilTagVision.createReal();
                 break;
 
@@ -53,6 +56,7 @@ public class RobotContainer {
                 drivetrain = Drivetrain.createSim();
                 indexer = Indexer.createSim(robotState.getDriveSim().orElseThrow());
                 arm = Arm.createSim();
+                shooter = Shooter.createSim();
                 aprilTagVision = AprilTagVision.createSim();
 
                 RobotState.getInstance().resetPose(FieldConstants.MIDFIELD);
@@ -64,6 +68,7 @@ public class RobotContainer {
                 drivetrain = Drivetrain.createDummy();
                 indexer = Indexer.createDummy();
                 arm = Arm.createDummy();
+                shooter = Shooter.createDummy();
                 aprilTagVision = AprilTagVision.createDummy();
                 break;
         }
@@ -74,6 +79,7 @@ public class RobotContainer {
             autoChooser.addOption("Drive FF Characterization", drivetrain.feedforwardCharacterization());
             autoChooser.addOption("Drive Wheel Radius Characterization", drivetrain.wheelRadiusCharacterization());
             autoChooser.addOption("Arm FF Characterization", arm.feedforwardCharacterization());
+            autoChooser.addOption("Shooter FF Characterization", shooter.feedforwardCharacterization());
         }
 
         // Configure the button bindings
@@ -109,7 +115,7 @@ public class RobotContainer {
                         () -> true));
         driver.leftTrigger(0.5)
                 .whileTrue(Commands.repeatingSequence(Commands.either(
-                                indexer.requestStateCommand(Indexer.IndexerState.STOP),
+                                indexer.requestStateCommand(Indexer.IndexerState.IDLE),
                                 indexer.requestStateCommand(Indexer.IndexerState.INTAKE),
                                 indexer::hasNote))
                         .finallyDo(indexer::stop));
@@ -118,11 +124,11 @@ public class RobotContainer {
                         .finallyDo(indexer::stop));
 
         Command aimCommand =
-                SuperstructureCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, () -> true);
+                SuperstructureCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, shooter, () -> true);
         Command stageAmpCommand =
                 SuperstructureCommands.teleopStageAmpCommand(driver.getHID(), drivetrain, arm, () -> true);
         driver.rightBumper().toggleOnTrue(aimCommand);
-        driver.y().toggleOnTrue(stageAmpCommand);
+        driver.y().and(indexer::hasNote).toggleOnTrue(stageAmpCommand);
 
         driver.rightTrigger()
                 .and(stageAmpCommand::isScheduled)
@@ -130,6 +136,13 @@ public class RobotContainer {
                         .until(() -> !indexer.hasNote())
                         .withTimeout(0.5)
                         .finallyDo(stageAmpCommand::cancel));
+        driver.rightTrigger()
+                .and(aimCommand::isScheduled)
+                .and(shooter::atGoal)
+                .onTrue(indexer.persistentStateCommand(Indexer.IndexerState.FEED_SHOOTER)
+                        .until(() -> !indexer.hasNote())
+                        .withTimeout(0.5)
+                        .alongWith(Commands.print("Shooting!")));
     }
 
     /**
