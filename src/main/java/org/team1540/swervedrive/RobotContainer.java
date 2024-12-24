@@ -132,17 +132,21 @@ public class RobotContainer {
 
         driver.rightTrigger()
                 .and(stageAmpCommand::isScheduled)
-                .onTrue(indexer.persistentStateCommand(Indexer.IndexerState.FEED_AMP)
+                .onTrue(indexer.requestStateCommand(Indexer.IndexerState.FEED_AMP)
                         .until(() -> !indexer.hasNote())
+                        .andThen(Commands.waitSeconds(0.1))
                         .withTimeout(0.5)
-                        .finallyDo(stageAmpCommand::cancel));
+                        .finallyDo(stageAmpCommand::cancel)
+                        .finallyDo(indexer::stop));
         driver.rightTrigger()
                 .and(aimCommand::isScheduled)
                 .and(shooter::atGoal)
-                .onTrue(indexer.persistentStateCommand(Indexer.IndexerState.FEED_SHOOTER)
+                .onTrue(indexer.requestStateCommand(Indexer.IndexerState.FEED_SHOOTER)
                         .until(() -> !indexer.hasNote())
+                        .andThen(Commands.waitSeconds(0.1))
                         .withTimeout(0.5)
-                        .alongWith(Commands.print("Shooting!")));
+                        .finallyDo(aimCommand::cancel)
+                        .finallyDo(indexer::stop));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
             driver.back().onTrue(Commands.runOnce(() -> {

@@ -58,8 +58,14 @@ public class IndexerIOSim implements IndexerIO {
         inputs.feederSupplyCurrentAmps = feederMotorSim.getCurrentDrawAmps();
         inputs.feederVelocityRPM = feederMotorSim.getAngularVelocityRPM();
 
-        // Start intake if intake velocity is greater than 75% of max speed
-        boolean running = intakeVoltage >= 6;
+        double surfaceSpeedMPS = intakeMotorSim.getAngularVelocityRadPerSec() * Indexer.ROLLER_RADIUS_METERS;
+        boolean running = surfaceSpeedMPS
+                        > RobotState.getInstance()
+                                .getDriveSim()
+                                .orElseThrow()
+                                .getDriveTrainSimulatedChassisSpeedsRobotRelative()
+                                .vxMetersPerSecond
+                && intakeVoltage >= 4.0;
         Logger.recordOutput("SimState/Intake/Running", running);
         if (running) intakeSim.startIntake();
         else intakeSim.stopIntake();

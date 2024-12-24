@@ -17,6 +17,7 @@ public class Indexer extends SubsystemBase {
 
     public static final double INTAKE_GEARING = 18.0 / 12.0;
     public static final double FEEDER_GEARING = 18.0 / 12.0;
+    public static final double ROLLER_RADIUS_METERS = Units.inchesToMeters(0.52);
 
     public static final double INTAKE_WIDTH_METERS = Units.inchesToMeters(25.716);
 
