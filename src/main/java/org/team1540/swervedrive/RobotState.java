@@ -255,17 +255,18 @@ public class RobotState {
 
     public void simShootNote() {
         if (!driveSimConfigured) return;
+        Translation2d shooterPosition = new Translation2d(Arm.PIVOT_ORIGIN.getX(), Arm.PIVOT_ORIGIN.getZ())
+                .plus(new Translation2d(Arm.LENGTH_METERS, Units.inchesToMeters(-3.0)))
+                .rotateBy(currentArmAngle);
         GamePieceProjectile note = new NoteOnFly(
                         getSimulatedRobotPose().getTranslation(),
-                        Arm.PIVOT_ORIGIN
-                                .toTranslation2d()
-                                .plus(new Translation2d(currentArmAngle.getCos() * Arm.LENGTH_METERS, 0.0)),
-                        driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative(),
+                        Arm.PIVOT_ORIGIN.toTranslation2d().plus(new Translation2d(shooterPosition.getX(), 0.0)),
+                        driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative()
+                                .div(4.0),
                         getSimulatedRobotPose().getRotation(),
-                        currentArmAngle.getSin() * Arm.LENGTH_METERS,
+                        shooterPosition.getY(),
                         (shooterLeftVelocityRPM + shooterRightVelocityRPM) / 2 * NOTE_VELOCITY_COEFF_MPS_PER_RPM,
-                        currentArmAngle.plus(Rotation2d.fromDegrees(5.0)).getRadians())
-                .asSpeakerShotNote(() -> {})
+                        currentArmAngle.getRadians())
                 .enableBecomeNoteOnFieldAfterTouchGround()
                 .withTouchGroundHeight(0.1);
         SimulatedArena.getInstance().addGamePieceProjectile(note);
@@ -288,7 +289,6 @@ public class RobotState {
                         currentArmAngle.plus(Rotation2d.fromDegrees(20)).getSin() * (Arm.LENGTH_METERS + 0.2),
                         0.5,
                         currentArmAngle.plus(Rotation2d.fromDegrees(135)).getRadians())
-                .asAmpShotNote(() -> {})
                 .enableBecomeNoteOnFieldAfterTouchGround()
                 .withTouchGroundHeight(0.1);
         SimulatedArena.getInstance().addGamePieceProjectile(note);

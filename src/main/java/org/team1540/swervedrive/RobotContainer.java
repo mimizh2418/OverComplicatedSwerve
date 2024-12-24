@@ -143,6 +143,13 @@ public class RobotContainer {
                         .until(() -> !indexer.hasNote())
                         .withTimeout(0.5)
                         .alongWith(Commands.print("Shooting!")));
+
+        if (Constants.currentMode == Constants.Mode.SIM) {
+            driver.back().onTrue(Commands.runOnce(() -> {
+                SimulatedArena.getInstance().resetFieldForAuto();
+                robotState.resetPose(FieldConstants.MIDFIELD);
+            }));
+        }
     }
 
     /**
