@@ -4,9 +4,7 @@ import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.estimator.SwerveDrivePoseEstimator;
-import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
@@ -15,8 +13,12 @@ import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import java.util.Optional;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
+import org.ironmaple.simulation.seasonspecific.crescendo2024.CrescendoNoteOnField;
+import org.ironmaple.simulation.seasonspecific.crescendo2024.NoteOnFly;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.subsystems.arm.Arm;
@@ -49,6 +51,9 @@ public class RobotState {
 
     private AimingParameters latestSpeakerParameters = null;
     private AimingParameters latestPassingParameters = null;
+
+    private Rotation2d currentArmAngle = Arm.MIN_ANGLE;
+    private Rotation2d goalArmAngle = Arm.MIN_ANGLE;
 
     private boolean driveSimConfigured = false;
     private SwerveDriveSimulation driveSim;
@@ -204,6 +209,19 @@ public class RobotState {
         return latestPassingParameters;
     }
 
+    public void addArmAngleData(Rotation2d armAngle, Rotation2d armGoalAngle) {
+        currentArmAngle = armAngle;
+        goalArmAngle = armGoalAngle;
+    }
+
+    public void updateMechanismVisualization() {
+        Pose3d currentPose = new Pose3d(Arm.PIVOT_ORIGIN, new Rotation3d(0.0, -currentArmAngle.getRadians(), 0.0));
+        Pose3d goalPose = new Pose3d(Arm.PIVOT_ORIGIN, new Rotation3d(0.0, -goalArmAngle.getRadians(), 0.0));
+
+        Logger.recordOutput("Arm/Mechanism3d/Measured", currentPose);
+        Logger.recordOutput("Arm/Mechanism3d/Goal", goalPose);
+    }
+
     public void configureDriveSim(SwerveDriveSimulation driveSim) {
         if (!driveSimConfigured) {
             if (!Robot.isSimulation()) {
@@ -215,8 +233,50 @@ public class RobotState {
         }
     }
 
+    public Optional<SwerveDriveSimulation> getDriveSim() {
+        if (!driveSimConfigured) return Optional.empty();
+        return Optional.of(driveSim);
+    }
+
     public Pose2d getSimulatedRobotPose() {
         if (!driveSimConfigured) return Pose2d.kZero;
         return driveSim.getSimulatedDriveTrainPose();
+    }
+
+    public void simShootNote() {
+        // TODO implement
+        if (!driveSimConfigured) return;
+    }
+
+    public void simAmpNote() {
+        if (!driveSimConfigured) return;
+        GamePieceProjectile note = new NoteOnFly(
+                        getSimulatedRobotPose().getTranslation(),
+                        Arm.PIVOT_ORIGIN
+                                .toTranslation2d()
+                                .plus(new Translation2d(
+                                        currentArmAngle
+                                                        .plus(Rotation2d.fromDegrees(20))
+                                                        .getCos()
+                                                * (Arm.LENGTH_METERS + 0.2),
+                                        0.)),
+                        driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative(),
+                        getSimulatedRobotPose().getRotation(),
+                        currentArmAngle.plus(Rotation2d.fromDegrees(20)).getSin() * (Arm.LENGTH_METERS + 0.2),
+                        0.5,
+                        currentArmAngle.plus(Rotation2d.fromDegrees(135)).getRadians())
+                .asAmpShotNote(() -> {})
+                .enableBecomeNoteOnFieldAfterTouchGround()
+                .withTouchGroundHeight(0.1);
+        SimulatedArena.getInstance().addGamePieceProjectile(note);
+    }
+
+    public void simEjectNote() {
+        if (!driveSimConfigured) return;
+        SimulatedArena.getInstance()
+                .addGamePiece(new CrescendoNoteOnField(getSimulatedRobotPose()
+                        .transformBy(
+                                new Transform2d(-(Constants.BUMPER_LENGTH_X_METERS / 2) - 0.05, 0.0, Rotation2d.kZero))
+                        .getTranslation()));
     }
 }

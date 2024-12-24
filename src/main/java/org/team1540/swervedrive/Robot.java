@@ -1,5 +1,6 @@
 package org.team1540.swervedrive;
 
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -95,6 +96,9 @@ public class Robot extends LoggedRobot {
         // Update alerts
         AlertManager.getInstance().update();
 
+        // Update visualization
+        RobotState.getInstance().updateMechanismVisualization();
+
         // Return to normal thread priority
         Threads.setCurrentThreadPriority(false, 10);
     }
@@ -162,5 +166,8 @@ public class Robot extends LoggedRobot {
         SimulatedArena.getInstance().simulationPeriodic();
         Logger.recordOutput(
                 "SimState/SimulatedRobotPose", RobotState.getInstance().getSimulatedRobotPose());
+        Logger.recordOutput(
+                "SimState/Notes",
+                SimulatedArena.getInstance().getGamePiecesByType("Note").toArray(new Pose3d[0]));
     }
 }

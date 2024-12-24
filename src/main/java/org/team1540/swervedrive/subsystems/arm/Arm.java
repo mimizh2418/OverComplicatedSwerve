@@ -9,9 +9,9 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import java.util.function.Supplier;
+import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
-import org.team1540.swervedrive.Robot;
 import org.team1540.swervedrive.RobotState;
 import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.util.ClosedLoopConfig;
@@ -71,7 +71,8 @@ public class Arm extends SubsystemBase {
     private final ArmIO io;
     private final ArmIOInputsAutoLogged inputs = new ArmIOInputsAutoLogged();
 
-    private Supplier<Rotation2d> setpoint = ArmState.STOW.angleSupplier;
+    @AutoLogOutput(key = "Arm/GoalState")
+    private ArmState goalState = ArmState.STOW;
 
     private final Alert leaderDisconnectedAlert = new Alert("Arm leader motor disconnected", Alert.AlertType.kError);
     private final Alert follwerDisconnectedAlert =
@@ -89,13 +90,13 @@ public class Arm extends SubsystemBase {
         io.updateInputs(inputs);
         Logger.processInputs("Arm", inputs);
 
-        Rotation2d currentSetpoint = setpoint.get();
-        Logger.recordOutput("Arm/setpoint", currentSetpoint);
+        Rotation2d currentSetpoint = goalState.angleSupplier.get();
+        Logger.recordOutput("Arm/Setpoint", currentSetpoint);
 
         if (DriverStation.isDisabled()) stop();
         else io.setPosition(currentSetpoint);
 
-        if (Robot.isSimulation()) logMechanismPoses();
+        RobotState.getInstance().addArmAngleData(inputs.position, goalState.angleSupplier.get());
 
         LoggedTunableNumber.ifChanged(hashCode(), () -> io.setPID(kP.get(), kI.get(), kD.get()), kP, kI, kD);
         LoggedTunableNumber.ifChanged(hashCode(), () -> io.setFF(kS.get(), kV.get(), kG.get()), kS, kV, kG);
@@ -109,30 +110,22 @@ public class Arm extends SubsystemBase {
         io.setVoltage(0);
     }
 
+    private void setGoal(ArmState goalState) {
+        this.goalState = goalState;
+    }
+
     public boolean atGoal() {
-        return MathUtil.isNear(setpoint.get().getDegrees(), inputs.position.getDegrees(), TOLERANCE.getDegrees());
+        return MathUtil.isNear(
+                goalState.angleSupplier.get().getDegrees(), inputs.position.getDegrees(), TOLERANCE.getDegrees());
     }
 
     public void setBrakeMode(boolean enabled) {
         io.setBrakeMode(enabled);
     }
 
-    private void runSetpoint(Supplier<Rotation2d> setpoint) {
-        this.setpoint = setpoint;
-    }
-
-    private void logMechanismPoses() {
-        Pose3d currentPose = new Pose3d(PIVOT_ORIGIN, new Rotation3d(0.0, -inputs.position.getRadians(), 0.0));
-        Pose3d goalPose =
-                new Pose3d(PIVOT_ORIGIN, new Rotation3d(0.0, -setpoint.get().getRadians(), 0.0));
-
-        Logger.recordOutput("Arm/Mechanism3d/measured", currentPose);
-        Logger.recordOutput("Arm/Mechanism3d/goal", goalPose);
-    }
-
     /** Returns a non-blocking command that sets the arm setpoint and ends */
     public Command requestStateCommand(ArmState state) {
-        return Commands.runOnce(() -> runSetpoint(state.angleSupplier), this);
+        return Commands.runOnce(() -> setGoal(state), this);
     }
 
     /** Returns a blocking command that sets the arm state and waits for the arm to reach that state.*/

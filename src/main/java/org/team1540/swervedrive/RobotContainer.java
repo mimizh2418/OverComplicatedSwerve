@@ -7,10 +7,12 @@ import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import org.ironmaple.simulation.SimulatedArena;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 import org.team1540.swervedrive.commands.SuperstructureCommands;
 import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.drive.*;
+import org.team1540.swervedrive.subsystems.indexer.Indexer;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
 
@@ -26,6 +28,7 @@ public class RobotContainer {
     // Subsystems
     public final Drivetrain drivetrain;
     public final Arm arm;
+    public final Indexer indexer;
     public final AprilTagVision aprilTagVision;
 
     // Controller
@@ -40,6 +43,7 @@ public class RobotContainer {
             case REAL:
                 // Real robot, instantiate hardware IO implementations
                 drivetrain = Drivetrain.createReal();
+                indexer = Indexer.createReal();
                 arm = Arm.createReal();
                 aprilTagVision = AprilTagVision.createReal();
                 break;
@@ -47,15 +51,18 @@ public class RobotContainer {
             case SIM:
                 // Sim robot, instantiate physics sim IO implementations
                 drivetrain = Drivetrain.createSim();
+                indexer = Indexer.createSim(robotState.getDriveSim().orElseThrow());
                 arm = Arm.createSim();
                 aprilTagVision = AprilTagVision.createSim();
 
                 RobotState.getInstance().resetPose(FieldConstants.MIDFIELD);
+                SimulatedArena.getInstance().resetFieldForAuto();
                 break;
 
             default:
                 // Replayed robot, disable IO implementations
                 drivetrain = Drivetrain.createDummy();
+                indexer = Indexer.createDummy();
                 arm = Arm.createDummy();
                 aprilTagVision = AprilTagVision.createDummy();
                 break;
@@ -100,6 +107,15 @@ public class RobotContainer {
                         driver.getHID(),
                         () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kCW_90deg),
                         () -> true));
+        driver.leftTrigger(0.5)
+                .whileTrue(Commands.repeatingSequence(Commands.either(
+                                indexer.requestStateCommand(Indexer.IndexerState.STOP),
+                                indexer.requestStateCommand(Indexer.IndexerState.INTAKE),
+                                indexer::hasNote))
+                        .finallyDo(indexer::stop));
+        driver.leftBumper()
+                .whileTrue(indexer.persistentStateCommand(Indexer.IndexerState.EJECT)
+                        .finallyDo(indexer::stop));
 
         Command aimCommand =
                 SuperstructureCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, () -> true);
@@ -107,6 +123,13 @@ public class RobotContainer {
                 SuperstructureCommands.teleopStageAmpCommand(driver.getHID(), drivetrain, arm, () -> true);
         driver.rightBumper().toggleOnTrue(aimCommand);
         driver.y().toggleOnTrue(stageAmpCommand);
+
+        driver.rightTrigger()
+                .and(stageAmpCommand::isScheduled)
+                .onTrue(indexer.persistentStateCommand(Indexer.IndexerState.FEED_AMP)
+                        .until(() -> !indexer.hasNote())
+                        .withTimeout(0.5)
+                        .finallyDo(stageAmpCommand::cancel));
     }
 
     /**
