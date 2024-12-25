@@ -24,6 +24,9 @@ public class TeleopCommands {
                         () -> RobotState.getInstance()
                                 .getSpeakerAimingParameters()
                                 .driveHeading(),
+                        () -> RobotState.getInstance()
+                                .getSpeakerAimingParameters()
+                                .driveVelocityFFRadPerSec(),
                         isFieldRelative),
                 SuperstructureCommands.speakerAimCommand(arm, shooter));
     }
@@ -36,6 +39,9 @@ public class TeleopCommands {
                         () -> RobotState.getInstance()
                                 .getPassingAimingParameters()
                                 .driveHeading(),
+                        () -> RobotState.getInstance()
+                                .getPassingAimingParameters()
+                                .driveVelocityFFRadPerSec(),
                         isFieldRelative),
                 SuperstructureCommands.passingAimCommand(arm, shooter));
     }
@@ -48,6 +54,9 @@ public class TeleopCommands {
                         () -> RobotState.getInstance()
                                 .getPassingAimingParameters()
                                 .driveHeading(),
+                        () -> RobotState.getInstance()
+                                .getPassingAimingParameters()
+                                .driveVelocityFFRadPerSec(),
                         isFieldRelative),
                 SuperstructureCommands.lowPassingAimCommand(arm, shooter));
     }
@@ -65,6 +74,13 @@ public class TeleopCommands {
                                         : robotState
                                                 .getPassingAimingParameters()
                                                 .driveHeading(),
+                                () -> FieldConstants.inOwnWing(robotState.getRobotPose())
+                                        ? robotState
+                                                .getSpeakerAimingParameters()
+                                                .driveVelocityFFRadPerSec()
+                                        : robotState
+                                                .getPassingAimingParameters()
+                                                .driveVelocityFFRadPerSec(),
                                 isFieldRelative),
                         Commands.repeatingSequence(Commands.defer(
                                 () -> {

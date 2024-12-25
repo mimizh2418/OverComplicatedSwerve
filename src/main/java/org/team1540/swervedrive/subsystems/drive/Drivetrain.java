@@ -350,13 +350,19 @@ public class Drivetrain extends SubsystemBase {
     }
 
     public Command teleopDriveWithHeadingCommand(
-            XboxController controller, Supplier<Rotation2d> heading, BooleanSupplier fieldRelative) {
+            XboxController controller,
+            Supplier<Rotation2d> heading,
+            DoubleSupplier angularVelocityFFRadsPerSec,
+            BooleanSupplier fieldRelative) {
         return percentDriveCommand(
                         () -> JoystickUtil.getSquaredJoystickTranslation(
                                 -controller.getLeftY(), -controller.getLeftX(), 0.1),
-                        () -> headingController.calculate(
-                                        RobotState.getInstance().getRotation().getRadians(),
-                                        heading.get().getRadians())
+                        () -> (headingController.calculate(
+                                                RobotState.getInstance()
+                                                        .getRotation()
+                                                        .getRadians(),
+                                                heading.get().getRadians())
+                                        + angularVelocityFFRadsPerSec.getAsDouble())
                                 / MAX_ANGULAR_SPEED_RADS_PER_SEC,
                         fieldRelative)
                 .beforeStarting(() -> headingController.reset(
@@ -364,6 +370,11 @@ public class Drivetrain extends SubsystemBase {
                         RobotState.getInstance().getRobotVelocity().omegaRadiansPerSecond))
                 .alongWith(Commands.run(() -> Logger.recordOutput("Drivetrain/HeadingGoal", heading.get())))
                 .until(() -> Math.abs(controller.getRightX()) >= 0.1);
+    }
+
+    public Command teleopDriveWithHeadingCommand(
+            XboxController controller, Supplier<Rotation2d> heading, BooleanSupplier fieldRelative) {
+        return teleopDriveWithHeadingCommand(controller, heading, () -> 0.0, fieldRelative);
     }
 
     public Command feedforwardCharacterization() {

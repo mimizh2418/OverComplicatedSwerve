@@ -9,6 +9,7 @@ import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -26,7 +27,18 @@ import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
 
 public class RobotState {
-    public record AimingParameters(Rotation2d driveHeading, Rotation2d armAngle, double effectiveDistanceMeters) {}
+    public record AimingParameters(
+            Rotation2d driveHeading,
+            double driveVelocityFFRadPerSec,
+            Rotation2d armAngle,
+            ShooterSpeeds shooterSpeeds,
+            double effectiveDistanceMeters) {}
+
+    public record ShooterSpeeds(double leftRPM, double rightRPM) {
+        public ShooterSpeeds plus(double delta) {
+            return new ShooterSpeeds(leftRPM + delta, rightRPM + delta);
+        }
+    }
 
     private static RobotState instance = null;
 
@@ -35,8 +47,20 @@ public class RobotState {
         return instance;
     }
 
-    private static final LoggedTunableNumber aimingLookaheadSeconds =
-            new LoggedTunableNumber("Aiming/lookaheadSeconds", 0.1);
+    private static final LoggedTunableNumber speakerLookaheadSecs =
+            new LoggedTunableNumber("Aiming/Speaker/LookaheadSeconds", 0.2);
+    private static final LoggedTunableNumber passingLookaheadSecs =
+            new LoggedTunableNumber("Aiming/Passing/LookaheadSeconds", 0.35);
+    private static final LoggedTunableNumber rpmCompensationCoeff =
+            new LoggedTunableNumber("Aiming/RPMCompensation/Coeff", 0.3);
+
+    private static final double SPEAKER_ANGLE_COEFF = 57.254371165197;
+    private static final double SPEAKER_ANGLE_EXP = -0.593140189605718;
+
+    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 17.5 / 6400;
+
+    private static final ShooterSpeeds SPEAKER_BASE_SHOOTER_SPEEDS = new ShooterSpeeds(5066.0, 7733.0);
+    private static final ShooterSpeeds PASS_BASE_SHOOTER_SPEEDS = new ShooterSpeeds(3500.0, 3500.0);
 
     private boolean poseEstimatorConfigured = false;
     private SwerveDrivePoseEstimator poseEstimator;
@@ -160,12 +184,35 @@ public class RobotState {
         latestPassingParameters = null;
     }
 
-    private static final double ANGLE_COEFF = 57.254371165197;
-    private static final double ANGLE_EXP = -0.593140189605718;
+    private double calculateDriveVelocityFFRadPerSec(Pose2d target) {
+        Vector<N2> targetTangentVector = target.getTranslation()
+                .minus(getRobotPose().getTranslation())
+                .rotateBy(Rotation2d.kCCW_90deg)
+                .toVector();
+        Vector<N2> robotVelocityVector =
+                VecBuilder.fill(getRobotVelocity().vxMetersPerSecond, getRobotVelocity().vyMetersPerSecond);
+        double projectedMagnitude =
+                robotVelocityVector.projection(targetTangentVector).norm();
+        double distance =
+                target.getTranslation().minus(getRobotPose().getTranslation()).getNorm();
+        return -projectedMagnitude / distance;
+    }
+
+    private double calculateRPMCompensation(Pose2d predictedPose, Pose2d target) {
+        Vector<N2> robotToTarget =
+                target.getTranslation().minus(predictedPose.getTranslation()).toVector();
+        Vector<N2> robotVelocity =
+                VecBuilder.fill(getRobotVelocity().vxMetersPerSecond, getRobotVelocity().vyMetersPerSecond);
+        Vector<N2> robotToTargetNormalized = robotToTarget.div(robotToTarget.norm());
+        double scalarProjection = robotVelocity.dot(robotToTargetNormalized);
+        return rpmCompensationCoeff.get()
+                * (scalarProjection / goalArmAngle.getCos())
+                / NOTE_VELOCITY_COEFF_MPS_PER_RPM;
+    }
 
     private Rotation2d calculateSpeakerArmAngle(double distanceMeters) {
         return Rotation2d.fromDegrees(MathUtil.clamp(
-                ANGLE_COEFF * Math.pow(distanceMeters, ANGLE_EXP),
+                SPEAKER_ANGLE_COEFF * Math.pow(distanceMeters, SPEAKER_ANGLE_EXP),
                 Arm.MIN_ANGLE.getDegrees(),
                 Arm.ArmState.SUBWOOFER.angleSupplier.get().getDegrees()));
     }
@@ -173,41 +220,53 @@ public class RobotState {
     public AimingParameters getSpeakerAimingParameters() {
         if (latestSpeakerParameters != null) return latestSpeakerParameters;
 
-        Pose2d predictedPose = predictRobotPose(aimingLookaheadSeconds.get());
+        Pose2d predictedPose = predictRobotPose(speakerLookaheadSecs.get());
         Translation2d robotToTargetTranslation =
                 FieldConstants.getSpeakerPose().getTranslation().minus(predictedPose.getTranslation());
         Rotation2d driveHeading = robotToTargetTranslation.getAngle();
         double effectiveDistanceMeters = robotToTargetTranslation.getNorm();
+        double rpmCompensation = calculateRPMCompensation(predictedPose, FieldConstants.getSpeakerPose());
 
         Logger.recordOutput("Aiming/Speaker/PredictedPose", predictedPose);
         Logger.recordOutput("Aiming/Speaker/EffectiveDistanceMeters", effectiveDistanceMeters);
         Logger.recordOutput("Aiming/Speaker/GoalPose", new Pose2d(predictedPose.getTranslation(), driveHeading));
+        Logger.recordOutput("Aiming/Speaker/RPMCompensation", rpmCompensation);
 
         latestSpeakerParameters = new AimingParameters(
-                driveHeading, calculateSpeakerArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
+                driveHeading,
+                calculateDriveVelocityFFRadPerSec(FieldConstants.getSpeakerPose()),
+                calculateSpeakerArmAngle(effectiveDistanceMeters),
+                SPEAKER_BASE_SHOOTER_SPEEDS.plus(rpmCompensation),
+                effectiveDistanceMeters);
         Logger.recordOutput("Aiming/Speaker/Parameters", latestSpeakerParameters);
         return latestSpeakerParameters;
     }
 
     private Rotation2d calculatePassingArmAngle(double distanceMeters) {
-        return Rotation2d.fromDegrees(passingArmAngleInterpolator.get(distanceMeters));
+        return Rotation2d.fromDegrees(
+                MathUtil.clamp(passingArmAngleInterpolator.get(distanceMeters), Arm.MIN_ANGLE.getDegrees(), 90.0));
     }
 
     public AimingParameters getPassingAimingParameters() {
         if (latestPassingParameters != null) return latestPassingParameters;
 
-        Pose2d predictedPose = predictRobotPose(aimingLookaheadSeconds.get());
+        Pose2d predictedPose = predictRobotPose(passingLookaheadSecs.get());
         Translation2d robotToTargetTranslation =
                 FieldConstants.getPassingTarget().getTranslation().minus(predictedPose.getTranslation());
         Rotation2d driveHeading = robotToTargetTranslation.getAngle();
         double effectiveDistanceMeters = robotToTargetTranslation.getNorm();
+        double rpmCompensation = calculateRPMCompensation(predictedPose, FieldConstants.getPassingTarget());
 
         Logger.recordOutput("Aiming/Passing/PredictedPose", predictedPose);
         Logger.recordOutput("Aiming/Passing/EffectiveDistanceMeters", effectiveDistanceMeters);
         Logger.recordOutput("Aiming/Passing/GoalPose", new Pose2d(predictedPose.getTranslation(), driveHeading));
 
         latestPassingParameters = new AimingParameters(
-                driveHeading, calculatePassingArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
+                driveHeading,
+                calculateDriveVelocityFFRadPerSec(FieldConstants.getPassingTarget()),
+                calculatePassingArmAngle(effectiveDistanceMeters),
+                PASS_BASE_SHOOTER_SPEEDS.plus(rpmCompensation),
+                effectiveDistanceMeters);
         Logger.recordOutput("Aiming/Passing/Parameters", latestPassingParameters);
         return latestPassingParameters;
     }
@@ -215,7 +274,11 @@ public class RobotState {
     public AimingParameters getLowPassingAimingParameters() {
         AimingParameters passParams = getPassingAimingParameters();
         var lowPassParams = new AimingParameters(
-                passParams.driveHeading(), Arm.ArmState.STOW.angleSupplier.get(), passParams.effectiveDistanceMeters());
+                passParams.driveHeading(),
+                passParams.driveVelocityFFRadPerSec(),
+                Arm.ArmState.STOW.angleSupplier.get(),
+                passParams.shooterSpeeds(),
+                passParams.effectiveDistanceMeters());
         Logger.recordOutput("Aiming/LowPassing/Parameters", lowPassParams);
         return lowPassParams;
     }
@@ -269,8 +332,6 @@ public class RobotState {
         return driveSim.getSimulatedDriveTrainPose();
     }
 
-    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 17.5 / 6400;
-
     public void simShootNote() {
         if (!driveSimConfigured) return;
         Pose3d robotToShooter = new Pose3d(
@@ -283,7 +344,7 @@ public class RobotState {
                         getSimulatedRobotPose().getTranslation(),
                         robotToShooter.getTranslation().toTranslation2d(),
                         driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative()
-                                .div(4.0),
+                                .div(2.0),
                         getSimulatedRobotPose()
                                 .getRotation()
                                 .plus(robotToShooter.getRotation().toRotation2d()),
@@ -306,7 +367,7 @@ public class RobotState {
                         getSimulatedRobotPose().getTranslation(),
                         robotToAmp.getTranslation().toTranslation2d(),
                         driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative()
-                                .div(4.0),
+                                .div(2.0),
                         getSimulatedRobotPose().getRotation(),
                         robotToAmp.getZ(),
                         1.0,

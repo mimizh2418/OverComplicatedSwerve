@@ -7,10 +7,12 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.util.function.Supplier;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.RobotState;
+import org.team1540.swervedrive.RobotState.ShooterSpeeds;
 import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.util.ClosedLoopConfig;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
@@ -24,17 +26,15 @@ public class Shooter extends SubsystemBase {
     public static final ClosedLoopConfig GAINS = new ClosedLoopConfig(0.0005, 0.0, 0.0, 0.00931, 0.06953, 0.0);
 
     public enum ShooterState {
-        IDLE(0.0, 0.0),
-        SPEAKER(5066.0, 7733.0),
-        PASS(4000.0, 4000.0),
-        LOW_PASS(4000.0, 4000.0);
+        IDLE(() -> new ShooterSpeeds(0.0, 0.0)),
+        SPEAKER(() -> RobotState.getInstance().getSpeakerAimingParameters().shooterSpeeds()),
+        PASS(() -> RobotState.getInstance().getPassingAimingParameters().shooterSpeeds()),
+        LOW_PASS(() -> RobotState.getInstance().getLowPassingAimingParameters().shooterSpeeds());
 
-        public final double leftVelocityRPM;
-        public final double rightVelocityRPM;
+        public final Supplier<ShooterSpeeds> speeds;
 
-        ShooterState(double leftVelocityRPM, double rightVelocityRPM) {
-            this.leftVelocityRPM = leftVelocityRPM;
-            this.rightVelocityRPM = rightVelocityRPM;
+        ShooterState(Supplier<ShooterSpeeds> speeds) {
+            this.speeds = speeds;
         }
     }
 
@@ -81,7 +81,9 @@ public class Shooter extends SubsystemBase {
         if (DriverStation.isDisabled()) stop();
         else if (!isCharacterizing) {
             if (goalState == ShooterState.IDLE) io.setVoltage(0.0, 0.0);
-            else io.setVelocity(goalState.leftVelocityRPM, goalState.rightVelocityRPM);
+            else
+                io.setVelocity(
+                        goalState.speeds.get().leftRPM(), goalState.speeds.get().rightRPM());
         }
 
         LoggedTunableNumber.ifChanged(hashCode(), () -> io.setPID(kP.get(), kI.get(), kD.get()), kP, kI, kD);
@@ -97,8 +99,8 @@ public class Shooter extends SubsystemBase {
 
     @AutoLogOutput(key = "Shooter/AtGoal")
     public boolean atGoal() {
-        return MathUtil.isNear(goalState.leftVelocityRPM, leftVelocityFilter.lastValue(), 500.0)
-                && MathUtil.isNear(goalState.rightVelocityRPM, rightVelocityFilter.lastValue(), 500.0);
+        return MathUtil.isNear(goalState.speeds.get().leftRPM(), leftVelocityFilter.lastValue(), 250.0)
+                && MathUtil.isNear(goalState.speeds.get().rightRPM(), rightVelocityFilter.lastValue(), 250.0);
     }
 
     public void stop() {
