@@ -26,7 +26,8 @@ public class Shooter extends SubsystemBase {
     public enum ShooterState {
         IDLE(0.0, 0.0),
         SPEAKER(5066.0, 7733.0),
-        PASS(3000.0, 3000.0);
+        PASS(4000.0, 4000.0),
+        LOW_PASS(4000.0, 4000.0);
 
         public final double leftVelocityRPM;
         public final double rightVelocityRPM;

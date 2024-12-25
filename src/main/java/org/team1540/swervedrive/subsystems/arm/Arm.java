@@ -50,7 +50,8 @@ public class Arm extends SubsystemBase {
         SUBWOOFER(() -> Rotation2d.fromDegrees(55.0)),
         PODIUM(() -> Rotation2d.fromDegrees(34.0)),
         SPEAKER(() -> RobotState.getInstance().getSpeakerAimingParameters().armAngle()),
-        PASS(() -> RobotState.getInstance().getPassingAimingParameters().armAngle());
+        PASS(() -> RobotState.getInstance().getPassingAimingParameters().armAngle()),
+        LOW_PASS(() -> RobotState.getInstance().getLowPassingAimingParameters().armAngle());
 
         public final Supplier<Rotation2d> angleSupplier;
 

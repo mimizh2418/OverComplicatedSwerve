@@ -170,7 +170,6 @@ public class RobotState {
                 Arm.ArmState.SUBWOOFER.angleSupplier.get().getDegrees()));
     }
 
-    @AutoLogOutput(key = "Aiming/Speaker/Parameters")
     public AimingParameters getSpeakerAimingParameters() {
         if (latestSpeakerParameters != null) return latestSpeakerParameters;
 
@@ -186,6 +185,7 @@ public class RobotState {
 
         latestSpeakerParameters = new AimingParameters(
                 driveHeading, calculateSpeakerArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
+        Logger.recordOutput("Aiming/Speaker/Parameters", latestSpeakerParameters);
         return latestSpeakerParameters;
     }
 
@@ -193,7 +193,6 @@ public class RobotState {
         return Rotation2d.fromDegrees(passingArmAngleInterpolator.get(distanceMeters));
     }
 
-    @AutoLogOutput(key = "Aiming/Passing/Parameters")
     public AimingParameters getPassingAimingParameters() {
         if (latestPassingParameters != null) return latestPassingParameters;
 
@@ -209,7 +208,16 @@ public class RobotState {
 
         latestPassingParameters = new AimingParameters(
                 driveHeading, calculatePassingArmAngle(effectiveDistanceMeters), effectiveDistanceMeters);
+        Logger.recordOutput("Aiming/Passing/Parameters", latestPassingParameters);
         return latestPassingParameters;
+    }
+
+    public AimingParameters getLowPassingAimingParameters() {
+        AimingParameters passParams = getPassingAimingParameters();
+        var lowPassParams = new AimingParameters(
+                passParams.driveHeading(), Arm.ArmState.STOW.angleSupplier.get(), passParams.effectiveDistanceMeters());
+        Logger.recordOutput("Aiming/LowPassing/Parameters", lowPassParams);
+        return lowPassParams;
     }
 
     public void addArmAngleData(Rotation2d armAngle, Rotation2d armGoalAngle) {
@@ -230,9 +238,19 @@ public class RobotState {
         Logger.recordOutput("Arm/Mechanism3d/Goal", goalPose);
     }
 
+    public void updateSimState() {
+        if (Constants.currentMode != Constants.Mode.SIM || !driveSimConfigured) return;
+        SimulatedArena.getInstance().simulationPeriodic();
+
+        Logger.recordOutput("SimState/SimulatedRobotPose", getSimulatedRobotPose());
+        Logger.recordOutput(
+                "SimState/Notes",
+                SimulatedArena.getInstance().getGamePiecesByType("Note").toArray(new Pose3d[0]));
+    }
+
     public void configureDriveSim(SwerveDriveSimulation driveSim) {
         if (!driveSimConfigured) {
-            if (!Robot.isSimulation()) {
+            if (Constants.currentMode != Constants.Mode.SIM) {
                 throw new IllegalStateException("Cannot configure drive simulation when not in simulation");
             }
             this.driveSim = driveSim;
@@ -251,20 +269,25 @@ public class RobotState {
         return driveSim.getSimulatedDriveTrainPose();
     }
 
-    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 20.0 / 6400;
+    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 17.5 / 6400;
 
     public void simShootNote() {
         if (!driveSimConfigured) return;
-        Translation2d shooterPosition = new Translation2d(Arm.PIVOT_ORIGIN.getX(), Arm.PIVOT_ORIGIN.getZ())
-                .plus(new Translation2d(Arm.LENGTH_METERS, Units.inchesToMeters(-3.0)))
-                .rotateBy(currentArmAngle);
+        Pose3d robotToShooter = new Pose3d(
+                new Translation3d(Arm.LENGTH_METERS, 0.0, 0.0)
+                        .rotateBy(new Rotation3d(0.0, -currentArmAngle.getRadians(), 0.0))
+                        .plus(Arm.PIVOT_ORIGIN),
+                new Rotation3d(0.0, -currentArmAngle.getRadians(), 0.0));
+
         GamePieceProjectile note = new NoteOnFly(
                         getSimulatedRobotPose().getTranslation(),
-                        Arm.PIVOT_ORIGIN.toTranslation2d().plus(new Translation2d(shooterPosition.getX(), 0.0)),
+                        robotToShooter.getTranslation().toTranslation2d(),
                         driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative()
                                 .div(4.0),
-                        getSimulatedRobotPose().getRotation(),
-                        shooterPosition.getY(),
+                        getSimulatedRobotPose()
+                                .getRotation()
+                                .plus(robotToShooter.getRotation().toRotation2d()),
+                        robotToShooter.getZ(),
                         (shooterLeftVelocityRPM + shooterRightVelocityRPM) / 2 * NOTE_VELOCITY_COEFF_MPS_PER_RPM,
                         currentArmAngle.getRadians())
                 .enableBecomeNoteOnFieldAfterTouchGround()
@@ -274,21 +297,20 @@ public class RobotState {
 
     public void simAmpNote() {
         if (!driveSimConfigured) return;
+        Pose3d robotToAmp = new Pose3d(
+                new Translation3d(Arm.LENGTH_METERS, 0.0, 0.0)
+                        .rotateBy(new Rotation3d(0.0, -currentArmAngle.getRadians() - Math.toRadians(20.0), 0.0))
+                        .plus(Arm.PIVOT_ORIGIN),
+                new Rotation3d(0.0, -currentArmAngle.getRadians() - Math.toRadians(135), 0.0));
         GamePieceProjectile note = new NoteOnFly(
                         getSimulatedRobotPose().getTranslation(),
-                        Arm.PIVOT_ORIGIN
-                                .toTranslation2d()
-                                .plus(new Translation2d(
-                                        currentArmAngle
-                                                        .plus(Rotation2d.fromDegrees(20))
-                                                        .getCos()
-                                                * (Arm.LENGTH_METERS + 0.2),
-                                        0.0)),
-                        driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative(),
+                        robotToAmp.getTranslation().toTranslation2d(),
+                        driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative()
+                                .div(4.0),
                         getSimulatedRobotPose().getRotation(),
-                        currentArmAngle.plus(Rotation2d.fromDegrees(20)).getSin() * (Arm.LENGTH_METERS + 0.2),
-                        0.5,
-                        currentArmAngle.plus(Rotation2d.fromDegrees(135)).getRadians())
+                        robotToAmp.getZ(),
+                        1.0,
+                        currentArmAngle.getRadians() + Math.toRadians(150))
                 .enableBecomeNoteOnFieldAfterTouchGround()
                 .withTouchGroundHeight(0.1);
         SimulatedArena.getInstance().addGamePieceProjectile(note);

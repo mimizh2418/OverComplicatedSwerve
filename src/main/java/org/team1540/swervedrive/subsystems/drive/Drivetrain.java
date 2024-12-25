@@ -29,6 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.drivesims.GyroSimulation;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
@@ -40,6 +41,7 @@ import org.team1540.swervedrive.Robot;
 import org.team1540.swervedrive.RobotState;
 import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.generated.TunerConstants;
+import org.team1540.swervedrive.subsystems.indexer.Indexer;
 import org.team1540.swervedrive.util.*;
 
 public class Drivetrain extends SubsystemBase {
@@ -342,15 +344,16 @@ public class Drivetrain extends SubsystemBase {
 
     public Command teleopDriveCommand(XboxController controller, BooleanSupplier fieldRelative) {
         return percentDriveCommand(
-                () -> JoystickUtil.getJoystickTranslation(-controller.getLeftY(), -controller.getLeftX(), 0.1),
-                () -> JoystickUtil.smartDeadzone(-controller.getRightX(), 0.1),
+                () -> JoystickUtil.getSquaredJoystickTranslation(-controller.getLeftY(), -controller.getLeftX(), 0.1),
+                () -> JoystickUtil.squaredSmartDeadzone(-controller.getRightX(), 0.1),
                 fieldRelative);
     }
 
     public Command teleopDriveWithHeadingCommand(
             XboxController controller, Supplier<Rotation2d> heading, BooleanSupplier fieldRelative) {
         return percentDriveCommand(
-                        () -> JoystickUtil.getJoystickTranslation(-controller.getLeftY(), -controller.getLeftX(), 0.1),
+                        () -> JoystickUtil.getSquaredJoystickTranslation(
+                                -controller.getLeftY(), -controller.getLeftX(), 0.1),
                         () -> headingController.calculate(
                                         RobotState.getInstance().getRotation().getRadians(),
                                         heading.get().getRadians())
@@ -396,7 +399,8 @@ public class Drivetrain extends SubsystemBase {
                 .withRobotMass(Kilograms.of(Constants.ROBOT_MASS_KG))
                 .withCustomModuleTranslations(MODULE_TRANSLATIONS)
                 .withBumperSize(
-                        Meters.of(Constants.BUMPER_LENGTH_X_METERS), Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
+                        Meters.of(Constants.BUMPER_LENGTH_X_METERS - Indexer.INTAKE_FRAME_EXT_METERS),
+                        Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
                 .withGyro(() -> new GyroSimulation(0.12 / 120, 0.02))
                 .withSwerveModule(() -> new SwerveModuleSimulation(
                         DCMotor.getKrakenX60Foc(1),
@@ -409,6 +413,17 @@ public class Drivetrain extends SubsystemBase {
                         KilogramSquareMeters.of(TunerConstants.FrontLeft.SteerInertia),
                         WHEEL_COF));
         var driveSim = new SwerveDriveSimulation(simConfig, Pose2d.kZero);
+
+        // Add a dummy intake simulation to simulate the intake extension
+        var dummyIntakeSim = new IntakeSimulation(
+                "",
+                driveSim,
+                Meters.of(Constants.BUMPER_LENGTH_Y_METERS),
+                Meters.of(Indexer.INTAKE_FRAME_EXT_METERS + 0.05),
+                IntakeSimulation.IntakeSide.BACK,
+                0);
+        dummyIntakeSim.startIntake();
+
         RobotState.getInstance().configureDriveSim(driveSim);
         return new Drivetrain(
                 new GyroIOSim(driveSim.getGyroSimulation()),

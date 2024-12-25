@@ -3,6 +3,7 @@ package org.team1540.swervedrive.subsystems.vision;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
 import edu.wpi.first.math.geometry.Pose3d;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.numbers.N3;
@@ -10,6 +11,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.Alert;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+import java.awt.*;
 import java.util.ArrayList;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
@@ -54,41 +56,58 @@ public class AprilTagVision extends SubsystemBase {
         }
     }
 
-    public record CameraConfig(String name, Transform3d robotToCamera) {}
+    public record CameraConfig(
+            String name,
+            Transform3d robotToCamera,
+            Rotation2d estimatedDiagonalFOV,
+            Dimension resolution,
+            double trustCoeff) {}
 
     private static final CameraConfig[] cameraConfigs = new CameraConfig[] {
         new CameraConfig(
-                "front-left",
+                "northstar-0",
                 new Transform3d(
-                        Units.inchesToMeters(12.797),
-                        Units.inchesToMeters(12.290),
-                        Units.inchesToMeters(8.0),
-                        new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(45))))), // Yaw left 45 degrees
+                        Units.inchesToMeters(8.875),
+                        Units.inchesToMeters(10.5),
+                        Units.inchesToMeters(8.25),
+                        new Rotation3d(0.0, Math.toRadians(-28.125), 0.0)
+                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(30)))),
+                Rotation2d.fromDegrees(75),
+                new Dimension(1600, 1200),
+                1.0),
         new CameraConfig(
-                "front-right",
+                "northstar-1",
                 new Transform3d(
-                        Units.inchesToMeters(12.797),
-                        Units.inchesToMeters(-12.290),
-                        Units.inchesToMeters(8.0),
-                        new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-45))))), // Yaw right 45 degrees
+                        Units.inchesToMeters(3.25),
+                        Units.inchesToMeters(5.0),
+                        Units.inchesToMeters(6.4),
+                        new Rotation3d(0.0, Math.toRadians(-16.876), 0.0)
+                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-4.709)))),
+                Rotation2d.fromDegrees(45),
+                new Dimension(1600, 1200),
+                1.5),
         new CameraConfig(
-                "back-left",
+                "northstar-2",
                 new Transform3d(
-                        Units.inchesToMeters(-12.797),
-                        Units.inchesToMeters(12.290),
-                        Units.inchesToMeters(8.0),
-                        new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(135))))), // Yaw left 135 degrees
+                        Units.inchesToMeters(8.875),
+                        Units.inchesToMeters(-10.5),
+                        Units.inchesToMeters(8.25),
+                        new Rotation3d(0.0, Math.toRadians(-28.125), 0.0)
+                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-30.0)))),
+                Rotation2d.fromDegrees(75),
+                new Dimension(1600, 1200),
+                1.0),
         new CameraConfig(
-                "back-right",
+                "northstar-3",
                 new Transform3d(
-                        Units.inchesToMeters(-12.797),
-                        Units.inchesToMeters(-12.290),
-                        Units.inchesToMeters(8.0),
-                        new Rotation3d(0.0, Math.toRadians(-30), 0.0) // Pitch up 30 degrees
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-135))))), // Yaw right 135 degrees
+                        Units.inchesToMeters(-16.0),
+                        Units.inchesToMeters(-12.0),
+                        Units.inchesToMeters(8.5),
+                        new Rotation3d(0.0, Units.degreesToRadians(-33.75), 0.0)
+                                .rotateBy(new Rotation3d(0.0, 0.0, Units.degreesToRadians(176.386)))),
+                Rotation2d.fromDegrees(90),
+                new Dimension(1600, 1200),
+                0.8)
     };
 
     // Pose filtering parameters
@@ -149,8 +168,9 @@ public class AprilTagVision extends SubsystemBase {
                 }
 
                 // Calculate standard deviations
-                double stdDevFactor =
-                        (observation.avgTagDistanceMeters * observation.avgTagDistanceMeters) / observation.numTags;
+                double stdDevFactor = (observation.avgTagDistanceMeters * observation.avgTagDistanceMeters)
+                        / observation.numTags
+                        * (1 / cameraConfigs[i].trustCoeff);
                 Vector<N3> stdDevs = observation.source.stdDevBaseline.times(stdDevFactor);
                 RobotState.getInstance().addVisionObservation(observation, stdDevs);
             }

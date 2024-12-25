@@ -33,7 +33,12 @@ public class IndexerIOSim implements IndexerIO {
 
     public IndexerIOSim(SwerveDriveSimulation driveSim) {
         intakeSim = new IntakeSimulation(
-                "Note", driveSim, Meters.of(Indexer.INTAKE_WIDTH_METERS), IntakeSimulation.IntakeSide.BACK, 1);
+                "Note",
+                driveSim,
+                Meters.of(Indexer.INTAKE_WIDTH_METERS),
+                Meters.of(Indexer.INTAKE_FRAME_EXT_METERS + 0.06),
+                IntakeSimulation.IntakeSide.BACK,
+                1);
         intakeSim.register(SimulatedArena.getInstance());
     }
 

@@ -9,7 +9,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import org.ironmaple.simulation.SimulatedArena;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
-import org.team1540.swervedrive.commands.SuperstructureCommands;
+import org.team1540.swervedrive.commands.TeleopCommands;
 import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.drive.*;
 import org.team1540.swervedrive.subsystems.indexer.Indexer;
@@ -59,7 +59,7 @@ public class RobotContainer {
                 shooter = Shooter.createSim();
                 aprilTagVision = AprilTagVision.createSim();
 
-                RobotState.getInstance().resetPose(FieldConstants.MIDFIELD);
+                RobotState.getInstance().resetPose(FieldConstants.getSubwooferStartingPose());
                 SimulatedArena.getInstance().resetFieldForAuto();
                 break;
 
@@ -124,9 +124,8 @@ public class RobotContainer {
                         .finallyDo(indexer::stop));
 
         Command aimCommand =
-                SuperstructureCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, shooter, () -> true);
-        Command stageAmpCommand =
-                SuperstructureCommands.teleopStageAmpCommand(driver.getHID(), drivetrain, arm, () -> true);
+                TeleopCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, shooter, () -> true);
+        Command stageAmpCommand = TeleopCommands.teleopStageAmpCommand(driver.getHID(), drivetrain, arm, () -> true);
         driver.rightBumper().toggleOnTrue(aimCommand);
         driver.y().and(indexer::hasNote).toggleOnTrue(stageAmpCommand);
 
@@ -134,8 +133,8 @@ public class RobotContainer {
                 .and(stageAmpCommand::isScheduled)
                 .onTrue(indexer.requestStateCommand(Indexer.IndexerState.FEED_AMP)
                         .until(() -> !indexer.hasNote())
-                        .andThen(Commands.waitSeconds(0.1))
                         .withTimeout(0.5)
+                        .andThen(Commands.waitSeconds(0.25))
                         .finallyDo(stageAmpCommand::cancel)
                         .finallyDo(indexer::stop));
         driver.rightTrigger()
@@ -143,16 +142,18 @@ public class RobotContainer {
                 .and(shooter::atGoal)
                 .onTrue(indexer.requestStateCommand(Indexer.IndexerState.FEED_SHOOTER)
                         .until(() -> !indexer.hasNote())
-                        .andThen(Commands.waitSeconds(0.1))
                         .withTimeout(0.5)
+                        .andThen(Commands.waitSeconds(0.25))
                         .finallyDo(aimCommand::cancel)
                         .finallyDo(indexer::stop));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
-            driver.back().onTrue(Commands.runOnce(() -> {
-                SimulatedArena.getInstance().resetFieldForAuto();
-                robotState.resetPose(FieldConstants.MIDFIELD);
-            }));
+            driver.back()
+                    .onTrue(Commands.runOnce(() -> {
+                                SimulatedArena.getInstance().resetFieldForAuto();
+                                robotState.resetPose(FieldConstants.getSubwooferStartingPose());
+                            })
+                            .ignoringDisable(true));
         }
     }
 
