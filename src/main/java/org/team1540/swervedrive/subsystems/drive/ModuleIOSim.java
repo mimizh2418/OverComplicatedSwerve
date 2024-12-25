@@ -11,6 +11,7 @@ import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.Voltage;
 import java.util.Arrays;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
+import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.ironmaple.simulation.motorsims.SimulatedMotorController;
 import org.team1540.swervedrive.util.PhoenixUtil;
 
@@ -60,6 +61,10 @@ public class ModuleIOSim implements ModuleIO {
             turnAppliedVolts = Volts.of(
                     turnPID.calculate(moduleSim.getSteerAbsoluteFacing().getRotations()));
         }
+
+        double batteryVoltage = SimulatedBattery.getBatteryVoltage().in(Volts);
+        driveAppliedVolts = Volts.of(MathUtil.clamp(driveAppliedVolts.in(Volts), -batteryVoltage, batteryVoltage));
+        turnAppliedVolts = Volts.of(MathUtil.clamp(turnAppliedVolts.in(Volts), -batteryVoltage, batteryVoltage));
 
         driveMotor.requestVoltage(driveAppliedVolts);
         turnMotor.requestVoltage(turnAppliedVolts);

@@ -1,13 +1,15 @@
 package org.team1540.swervedrive.subsystems.indexer;
 
-import static edu.wpi.first.units.Units.Meters;
+import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.DCMotorSim;
 import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
+import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.RobotState;
@@ -40,10 +42,16 @@ public class IndexerIOSim implements IndexerIO {
                 IntakeSimulation.IntakeSide.BACK,
                 1);
         intakeSim.register(SimulatedArena.getInstance());
+        SimulatedBattery.addElectricalAppliances(
+                () -> Amps.of(intakeMotorSim.getCurrentDrawAmps() + feederMotorSim.getCurrentDrawAmps()));
     }
 
     @Override
     public void updateInputs(IndexerIOInputs inputs) {
+        double batteryVoltage = SimulatedBattery.getBatteryVoltage().in(Volts);
+        intakeVoltage = MathUtil.clamp(intakeVoltage, -batteryVoltage, batteryVoltage);
+        feederVoltage = MathUtil.clamp(feederVoltage, -batteryVoltage, batteryVoltage);
+
         intakeMotorSim.setInputVoltage(intakeVoltage);
         feederMotorSim.setInputVoltage(feederVoltage);
         intakeMotorSim.update(Constants.LOOP_PERIOD_SECS);

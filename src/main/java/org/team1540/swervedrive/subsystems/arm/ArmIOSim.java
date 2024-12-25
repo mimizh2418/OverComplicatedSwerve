@@ -1,8 +1,8 @@
 package org.team1540.swervedrive.subsystems.arm;
 
-import static edu.wpi.first.units.Units.RotationsPerSecond;
-import static edu.wpi.first.units.Units.Volts;
+import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.ArmFeedforward;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Rotation2d;
@@ -10,6 +10,7 @@ import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.simulation.SingleJointedArmSim;
+import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.team1540.swervedrive.Constants;
 
 public class ArmIOSim implements ArmIO {
@@ -32,6 +33,7 @@ public class ArmIOSim implements ArmIO {
 
     public ArmIOSim() {
         sim.setState(Arm.MIN_ANGLE.getRadians(), 0.0);
+        SimulatedBattery.addElectricalAppliances(() -> Amps.of(sim.getCurrentDrawAmps()));
     }
 
     @Override
@@ -42,6 +44,10 @@ public class ArmIOSim implements ArmIO {
                     + ff.calculate(position.getMeasure(), RotationsPerSecond.of(pid.getSetpoint().velocity))
                             .in(Volts);
         }
+
+        double batteryVoltage = SimulatedBattery.getBatteryVoltage().in(Volts);
+        appliedVoltage = MathUtil.clamp(appliedVoltage, -batteryVoltage, batteryVoltage);
+
         sim.setInputVoltage(appliedVoltage);
         sim.update(Constants.LOOP_PERIOD_SECS);
 

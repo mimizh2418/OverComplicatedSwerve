@@ -2,11 +2,13 @@ package org.team1540.swervedrive.subsystems.shooter;
 
 import static edu.wpi.first.units.Units.*;
 
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.SimpleMotorFeedforward;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
 import edu.wpi.first.wpilibj.simulation.FlywheelSim;
+import org.ironmaple.simulation.motorsims.SimulatedBattery;
 import org.team1540.swervedrive.Constants;
 
 public class ShooterIOSim implements ShooterIO {
@@ -26,6 +28,11 @@ public class ShooterIOSim implements ShooterIO {
 
     private boolean isClosedLoop;
 
+    public ShooterIOSim() {
+        SimulatedBattery.addElectricalAppliances(
+                () -> Amps.of(leftSim.getCurrentDrawAmps() + rightSim.getCurrentDrawAmps()));
+    }
+
     @Override
     public void updateInputs(ShooterIOInputs inputs) {
         double leftVelocityRPS = leftSim.getAngularVelocityRPM() / 60.0;
@@ -37,6 +44,11 @@ public class ShooterIOSim implements ShooterIO {
                     + ff.calculate(RotationsPerSecond.of(rightPID.getSetpoint()))
                             .in(Volts);
         }
+
+        double batteryVoltage = SimulatedBattery.getBatteryVoltage().in(Volts);
+        leftVoltage = MathUtil.clamp(leftVoltage, -batteryVoltage, batteryVoltage);
+        rightVoltage = MathUtil.clamp(rightVoltage, -batteryVoltage, batteryVoltage);
+
         leftSim.setInputVoltage(leftVoltage);
         rightSim.setInputVoltage(rightVoltage);
         leftSim.update(Constants.LOOP_PERIOD_SECS);
