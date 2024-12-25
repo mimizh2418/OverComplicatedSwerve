@@ -187,15 +187,15 @@ public class RobotState {
     private double calculateDriveVelocityFFRadPerSec(Pose2d target) {
         Vector<N2> targetTangentVector = target.getTranslation()
                 .minus(getRobotPose().getTranslation())
-                .rotateBy(Rotation2d.kCCW_90deg)
+                .rotateBy(Rotation2d.kCW_90deg)
                 .toVector();
+        Vector<N2> targetTangentVectorNormalized = targetTangentVector.div(targetTangentVector.norm());
         Vector<N2> robotVelocityVector =
                 VecBuilder.fill(getRobotVelocity().vxMetersPerSecond, getRobotVelocity().vyMetersPerSecond);
-        double projectedMagnitude =
-                robotVelocityVector.projection(targetTangentVector).norm();
+        double scalarProjection = robotVelocityVector.dot(targetTangentVectorNormalized);
         double distance =
                 target.getTranslation().minus(getRobotPose().getTranslation()).getNorm();
-        return -projectedMagnitude / distance;
+        return -scalarProjection / distance;
     }
 
     private double calculateRPMCompensation(Pose2d predictedPose, Pose2d target) {
