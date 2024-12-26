@@ -1,5 +1,7 @@
 package org.team1540.swervedrive;
 
+import choreo.trajectory.SwerveSample;
+import choreo.trajectory.Trajectory;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.VecBuilder;
 import edu.wpi.first.math.Vector;
@@ -24,6 +26,7 @@ import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
+import org.team1540.swervedrive.util.AllianceFlipUtil;
 import org.team1540.swervedrive.util.LoggedTunableNumber;
 
 public class RobotState {
@@ -48,7 +51,7 @@ public class RobotState {
     }
 
     private static final LoggedTunableNumber speakerLookaheadSecs =
-            new LoggedTunableNumber("Aiming/Speaker/LookaheadSeconds", 0.2);
+            new LoggedTunableNumber("Aiming/Speaker/LookaheadSeconds", 0.15);
     private static final LoggedTunableNumber passingLookaheadSecs =
             new LoggedTunableNumber("Aiming/Passing/LookaheadSeconds", 0.35);
     private static final LoggedTunableNumber rpmCompensationCoeff =
@@ -70,6 +73,8 @@ public class RobotState {
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
         new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
     };
+
+    private Trajectory<SwerveSample> activeTrajectory = null;
 
     private final InterpolatingDoubleTreeMap passingArmAngleInterpolator = new InterpolatingDoubleTreeMap();
 
@@ -131,13 +136,20 @@ public class RobotState {
         robotVelocity = velocity;
     }
 
-    public void setActiveTrajectory(Pose2d[] trajectory) {
-        field.getObject("trajectory").setPoses(trajectory);
-        Logger.recordOutput("Odometry/Trajectory/ActiveTrajectory", trajectory);
+    public void setActiveTrajectory(Trajectory<SwerveSample> trajectory) {
+        activeTrajectory = AllianceFlipUtil.shouldFlip() ? trajectory.flipped() : trajectory;
+        field.getObject("trajectory").setPoses(activeTrajectory.getPoses());
+        Logger.recordOutput("Odometry/Trajectory/ActiveTrajectory", activeTrajectory.getPoses());
     }
 
-    public void setCurrentTrajectoryTarget(Pose2d target) {
-        Logger.recordOutput("Odometry/Trajectory/CurrentTrajectoryTarget", target);
+    public void clearActiveTrajectory() {
+        field.getObject("trajectory").setPoses();
+        Logger.recordOutput("Odometry/Trajectory/ActiveTrajectory", new Pose2d[0]);
+        activeTrajectory = null;
+    }
+
+    public void setTrajectoryTarget(Pose2d target) {
+        Logger.recordOutput("Odometry/Trajectory/TargetPose", target);
     }
 
     public void resetPose(Pose2d newPose) {
@@ -164,13 +176,15 @@ public class RobotState {
 
     @AutoLogOutput(key = "Odometry/FieldRelativeVelocity")
     public ChassisSpeeds getFieldRelativeVelocity() {
-        var rotated = new Translation2d(robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond)
-                .rotateBy(getRotation());
-        return new ChassisSpeeds(rotated.getX(), rotated.getY(), robotVelocity.omegaRadiansPerSecond);
+        ChassisSpeeds velocity = new ChassisSpeeds(
+                robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond, robotVelocity.omegaRadiansPerSecond);
+        velocity.toFieldRelativeSpeeds(getRotation());
+        return velocity;
     }
 
     public Pose2d predictRobotPose(double lookaheadSeconds) {
         if (!poseEstimatorConfigured) return Pose2d.kZero;
+
         ChassisSpeeds velocity = getFieldRelativeVelocity();
         Pose2d pose = getRobotPose();
         return new Pose2d(
@@ -184,10 +198,10 @@ public class RobotState {
         latestPassingParameters = null;
     }
 
-    private double calculateDriveVelocityFFRadPerSec(Pose2d target) {
+    private double calculateDriveOmegaFFRadPerSec(Pose2d target) {
         Vector<N2> targetTangentVector = target.getTranslation()
                 .minus(getRobotPose().getTranslation())
-                .rotateBy(Rotation2d.kCW_90deg)
+                .rotateBy(AllianceFlipUtil.shouldFlip() ? Rotation2d.kCCW_90deg : Rotation2d.kCW_90deg)
                 .toVector();
         Vector<N2> targetTangentVectorNormalized = targetTangentVector.div(targetTangentVector.norm());
         Vector<N2> robotVelocityVector =
@@ -234,7 +248,7 @@ public class RobotState {
 
         latestSpeakerParameters = new AimingParameters(
                 driveHeading,
-                calculateDriveVelocityFFRadPerSec(FieldConstants.getSpeakerPose()),
+                calculateDriveOmegaFFRadPerSec(FieldConstants.getSpeakerPose()),
                 calculateSpeakerArmAngle(effectiveDistanceMeters),
                 SPEAKER_BASE_SHOOTER_SPEEDS.plus(rpmCompensation),
                 effectiveDistanceMeters);
@@ -263,7 +277,7 @@ public class RobotState {
 
         latestPassingParameters = new AimingParameters(
                 driveHeading,
-                calculateDriveVelocityFFRadPerSec(FieldConstants.getPassingTarget()),
+                calculateDriveOmegaFFRadPerSec(FieldConstants.getPassingTarget()),
                 calculatePassingArmAngle(effectiveDistanceMeters),
                 PASS_BASE_SHOOTER_SPEEDS.plus(rpmCompensation),
                 effectiveDistanceMeters);
@@ -303,12 +317,12 @@ public class RobotState {
 
     public void updateSimState() {
         if (Constants.currentMode != Constants.Mode.SIM || !driveSimConfigured) return;
-        SimulatedArena.getInstance().simulationPeriodic();
-
         Logger.recordOutput("SimState/SimulatedRobotPose", getSimulatedRobotPose());
         Logger.recordOutput(
                 "SimState/Notes",
                 SimulatedArena.getInstance().getGamePiecesByType("Note").toArray(new Pose3d[0]));
+
+        SimulatedArena.getInstance().simulationPeriodic();
     }
 
     public void configureDriveSim(SwerveDriveSimulation driveSim) {

@@ -18,8 +18,8 @@ public class IndexerIOSim implements IndexerIO {
     private static final DCMotor INTAKE_GEARBOX = DCMotor.getKrakenX60Foc(1).withReduction(Indexer.INTAKE_GEARING);
     private static final DCMotor FEEDER_GEARBOX = DCMotor.getKrakenX60Foc(1).withReduction(Indexer.FEEDER_GEARING);
 
-    private static final double INTAKE_INTEGRAL_COEFF = 0.15 / Indexer.INTAKE_GEARING;
-    private static final double FEED_INTEGRAL_COEFF = 0.15 / Indexer.FEEDER_GEARING;
+    private static final double INTAKE_INTEGRAL_COEFF = 0.3 / Indexer.INTAKE_GEARING;
+    private static final double FEED_INTEGRAL_COEFF = 0.3 / Indexer.FEEDER_GEARING;
 
     private final DCMotorSim intakeMotorSim = new DCMotorSim(
             LinearSystemId.createDCMotorSystem(INTAKE_GEARBOX, 0.001, Indexer.INTAKE_GEARING), INTAKE_GEARBOX);

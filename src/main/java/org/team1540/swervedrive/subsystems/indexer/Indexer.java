@@ -87,6 +87,32 @@ public class Indexer extends SubsystemBase {
         return Commands.run(() -> setGoal(state), this).finallyDo(this::stop);
     }
 
+    public Command continuousIntakeCommand() {
+        return Commands.run(
+                        () -> {
+                            if (!hasNote()) setGoal(IndexerState.INTAKE);
+                            else setGoal(IndexerState.IDLE);
+                        },
+                        this)
+                .finallyDo(this::stop);
+    }
+
+    public Command feedShooterCommand() {
+        return persistentStateCommand(IndexerState.FEED_SHOOTER)
+                .until(() -> !hasNote())
+                .withTimeout(0.5)
+                .andThen(Commands.waitSeconds(0.25))
+                .finallyDo(this::stop);
+    }
+
+    public Command feedAmpCommand() {
+        return persistentStateCommand(IndexerState.FEED_AMP)
+                .until(() -> !hasNote())
+                .withTimeout(0.5)
+                .andThen(Commands.waitSeconds(0.25))
+                .finallyDo(this::stop);
+    }
+
     public static Indexer createReal() {
         if (Constants.currentMode != Constants.Mode.REAL)
             DriverStation.reportWarning("Using real indexer on simulated robot", false);

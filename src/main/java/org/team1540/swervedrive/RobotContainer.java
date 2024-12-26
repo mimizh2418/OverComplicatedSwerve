@@ -1,14 +1,16 @@
 package org.team1540.swervedrive;
 
-import com.pathplanner.lib.auto.AutoBuilder;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import org.ironmaple.simulation.SimulatedArena;
-import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
+import org.team1540.swervedrive.autos.AutoGenerator;
 import org.team1540.swervedrive.commands.TeleopCommands;
 import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.drive.*;
@@ -16,6 +18,7 @@ import org.team1540.swervedrive.subsystems.indexer.Indexer;
 import org.team1540.swervedrive.subsystems.shooter.Shooter;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
+import org.team1540.swervedrive.util.auto.LoggedAutoChooser;
 
 /**
  * This class is where the bulk of the robot should be declared. Since Command-based is a
@@ -36,8 +39,11 @@ public class RobotContainer {
     // Controller
     private final CommandXboxController driver = new CommandXboxController(0);
 
+    // Auto generator
+    private final AutoGenerator autoGenerator;
+
     // Dashboard inputs
-    private final LoggedDashboardChooser<Command> autoChooser;
+    private final LoggedAutoChooser autoChooser;
 
     /** The container for the robot. Contains subsystems, OI devices, and commands. */
     public RobotContainer() {
@@ -73,17 +79,50 @@ public class RobotContainer {
                 break;
         }
 
-        autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+        autoGenerator = new AutoGenerator(drivetrain, indexer, arm, shooter);
+        autoChooser = new LoggedAutoChooser("Auto Chooser");
 
         if (Constants.isTuningMode()) {
-            autoChooser.addOption("Drive FF Characterization", drivetrain.feedforwardCharacterization());
-            autoChooser.addOption("Drive Wheel Radius Characterization", drivetrain.wheelRadiusCharacterization());
-            autoChooser.addOption("Arm FF Characterization", arm.feedforwardCharacterization());
-            autoChooser.addOption("Shooter FF Characterization", shooter.feedforwardCharacterization());
+            autoChooser.addCmd("Drive FF Characterization", drivetrain::feedforwardCharacterization);
+            autoChooser.addCmd("Drive Wheel Radius Characterization", drivetrain::wheelRadiusCharacterization);
+            autoChooser.addCmd("Arm FF Characterization", arm::feedforwardCharacterization);
+            autoChooser.addCmd("Shooter FF Characterization", shooter::feedforwardCharacterization);
         }
+
+        // Configure periodic callbacks
+        configurePeriodicCallbacks();
+
+        // Configure robot mode triggers
+        configureRobotModeTriggers();
 
         // Configure the button bindings
         configureButtonBindings();
+
+        // Configure auto routines
+        configureAutoRoutines();
+    }
+
+    private void configurePeriodicCallbacks() {
+        CommandScheduler.getInstance()
+                .schedule(Commands.run(() -> {
+                            robotState.updateMechanismVisualization();
+                            AlertManager.getInstance().update();
+                        })
+                        .ignoringDisable(true)
+                        .withName("Periodic Callbacks"));
+
+        if (Constants.currentMode == Constants.Mode.SIM) {
+            CommandScheduler.getInstance()
+                    .schedule(Commands.run(robotState::updateSimState)
+                            .ignoringDisable(true)
+                            .withName("Simulation update"));
+        }
+    }
+
+    private void configureRobotModeTriggers() {
+        RobotModeTriggers.teleop()
+                .and(DriverStation::isFMSAttached)
+                .onTrue(Commands.runOnce(drivetrain::zeroFieldOrientation));
     }
 
     /**
@@ -113,12 +152,7 @@ public class RobotContainer {
                         driver.getHID(),
                         () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kCW_90deg),
                         () -> true));
-        driver.leftTrigger(0.5)
-                .whileTrue(Commands.repeatingSequence(Commands.either(
-                                indexer.requestStateCommand(Indexer.IndexerState.IDLE),
-                                indexer.requestStateCommand(Indexer.IndexerState.INTAKE),
-                                indexer::hasNote))
-                        .finallyDo(indexer::stop));
+        driver.leftTrigger(0.5).whileTrue(indexer.continuousIntakeCommand());
         driver.leftBumper()
                 .whileTrue(indexer.persistentStateCommand(Indexer.IndexerState.EJECT)
                         .finallyDo(indexer::stop));
@@ -131,21 +165,12 @@ public class RobotContainer {
 
         driver.rightTrigger()
                 .and(stageAmpCommand::isScheduled)
-                .onTrue(indexer.requestStateCommand(Indexer.IndexerState.FEED_AMP)
-                        .until(() -> !indexer.hasNote())
-                        .withTimeout(0.5)
-                        .andThen(Commands.waitSeconds(0.25))
-                        .finallyDo(stageAmpCommand::cancel)
-                        .finallyDo(indexer::stop));
+                .onTrue(indexer.feedAmpCommand().finallyDo(stageAmpCommand::cancel));
         driver.rightTrigger()
                 .and(aimCommand::isScheduled)
-                .and(shooter::atGoal)
-                .onTrue(indexer.requestStateCommand(Indexer.IndexerState.FEED_SHOOTER)
-                        .until(() -> !indexer.hasNote())
-                        .withTimeout(0.5)
-                        .andThen(Commands.waitSeconds(0.25))
-                        .finallyDo(aimCommand::cancel)
-                        .finallyDo(indexer::stop));
+                .onTrue(Commands.waitUntil(shooter::atGoal)
+                        .withTimeout(0.15)
+                        .andThen(indexer.feedShooterCommand().finallyDo(aimCommand::cancel)));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
             driver.back()
@@ -157,12 +182,17 @@ public class RobotContainer {
         }
     }
 
+    private void configureAutoRoutines() {
+        autoChooser.addRoutine("Center Lane PCBA", autoGenerator::centerLanePCBA);
+        autoChooser.addRoutine("Center Lane PCBADEF", autoGenerator::centerLanePCBADEFSprint);
+    }
+
     /**
      * Use this to pass the autonomous command to the main {@link Robot} class.
      *
      * @return the command to run in autonomous
      */
     public Command getAutonomousCommand() {
-        return autoChooser.get();
+        return autoChooser.selectedCommand();
     }
 }

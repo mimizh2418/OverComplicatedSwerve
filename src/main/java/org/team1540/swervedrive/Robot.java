@@ -1,6 +1,5 @@
 package org.team1540.swervedrive;
 
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.Threads;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
@@ -92,12 +91,6 @@ public class Robot extends LoggedRobot {
         // the Command-based framework to work.
         CommandScheduler.getInstance().run();
 
-        // Update alerts
-        AlertManager.getInstance().update();
-
-        // Update visualization
-        RobotState.getInstance().updateMechanismVisualization();
-
         // Return to normal thread priority
         Threads.setCurrentThreadPriority(false, 10);
     }
@@ -137,7 +130,6 @@ public class Robot extends LoggedRobot {
         if (autonomousCommand != null) {
             autonomousCommand.cancel();
         }
-        if (DriverStation.isFMSAttached()) robotContainer.drivetrain.zeroFieldOrientation();
     }
 
     /** This function is called periodically during operator control. */
@@ -161,7 +153,5 @@ public class Robot extends LoggedRobot {
 
     /** This function is called periodically whilst in simulation. */
     @Override
-    public void simulationPeriodic() {
-        RobotState.getInstance().updateSimState();
-    }
+    public void simulationPeriodic() {}
 }

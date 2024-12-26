@@ -2,13 +2,7 @@ package org.team1540.swervedrive.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
-import com.pathplanner.lib.auto.AutoBuilder;
-import com.pathplanner.lib.config.ModuleConfig;
-import com.pathplanner.lib.config.PIDConstants;
-import com.pathplanner.lib.config.RobotConfig;
-import com.pathplanner.lib.controllers.PPHolonomicDriveController;
-import com.pathplanner.lib.pathfinding.Pathfinding;
-import com.pathplanner.lib.util.PathPlannerLogging;
+import choreo.trajectory.SwerveSample;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
@@ -55,10 +49,19 @@ public class Drivetrain extends SubsystemBase {
                     Math.hypot(TunerConstants.BackLeft.LocationX, TunerConstants.BackLeft.LocationY),
                     Math.hypot(TunerConstants.BackRight.LocationX, TunerConstants.BackRight.LocationY)));
 
+    public static final double MAX_TOTAL_MODULE_FORCES = DCMotor.getKrakenX60Foc(4)
+                    .withReduction(TunerConstants.FrontLeft.DriveMotorGearRatio)
+                    .getTorque(TunerConstants.FrontLeft.SlipCurrent)
+            / TunerConstants.FrontLeft.WheelRadius;
+
     public static final double MAX_LINEAR_SPEED_MPS = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+    public static final double MAX_LINEAR_ACCELERATION_MPS2 = MAX_TOTAL_MODULE_FORCES / Constants.ROBOT_MASS_KG;
+
+    public static final double MAX_ANGULAR_SPEED_RADS_PER_SEC = MAX_LINEAR_SPEED_MPS / DRIVE_BASE_RADIUS;
+    public static final double MAX_ANGULAR_ACCELERATION_RADS_PER_SEC2 =
+            MAX_TOTAL_MODULE_FORCES * DRIVE_BASE_RADIUS / Constants.ROBOT_MOI_KG_M2;
     public static final double MAX_STEER_SPEED_RADS_PER_SEC =
             DCMotor.getFalcon500(1).withReduction(TunerConstants.FrontLeft.SteerMotorGearRatio).freeSpeedRadPerSec;
-    public static final double MAX_ANGULAR_SPEED_RADS_PER_SEC = MAX_LINEAR_SPEED_MPS / DRIVE_BASE_RADIUS;
 
     public static final double WHEEL_COF = 1.2;
 
@@ -72,9 +75,13 @@ public class Drivetrain extends SubsystemBase {
     private static boolean hasInstance;
     static final Lock odometryLock = new ReentrantLock();
 
-    private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 15.0);
+    private static final LoggedTunableNumber translationKP = new LoggedTunableNumber("Drivetrain/Translation/kP", 4.0);
+    private static final LoggedTunableNumber translationKI = new LoggedTunableNumber("Drivetrain/Translation/kI", 0.0);
+    private static final LoggedTunableNumber translationKD = new LoggedTunableNumber("Drivetrain/Translation/kD", 0.0);
+
+    private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 7.5);
     private static final LoggedTunableNumber headingKI = new LoggedTunableNumber("Drivetrain/Heading/kI", 0.0);
-    private static final LoggedTunableNumber headingKD = new LoggedTunableNumber("Drivetrain/Heading/kD", 0.85);
+    private static final LoggedTunableNumber headingKD = new LoggedTunableNumber("Drivetrain/Heading/kD", 0.1);
 
     private final GyroIO gyroIO;
     private final GyroIOInputsAutoLogged gyroInputs = new GyroIOInputsAutoLogged();
@@ -93,11 +100,19 @@ public class Drivetrain extends SubsystemBase {
     @AutoLogOutput(key = "Drivetrain/DesiredSpeeds")
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
 
+    private final TrajectoryController trajectoryController = new TrajectoryController(
+            translationKP.get(),
+            translationKI.get(),
+            translationKD.get(),
+            headingKP.get(),
+            headingKI.get(),
+            headingKD.get());
+
     private final ProfiledPIDController headingController = new ProfiledPIDController(
             headingKP.get(),
             headingKI.get(),
             headingKD.get(),
-            new TrapezoidProfile.Constraints(MAX_ANGULAR_SPEED_RADS_PER_SEC, MAX_ANGULAR_SPEED_RADS_PER_SEC * 3));
+            new TrapezoidProfile.Constraints(MAX_ANGULAR_SPEED_RADS_PER_SEC, MAX_ANGULAR_ACCELERATION_RADS_PER_SEC2));
 
     private final Alert gyroDisconnected = new Alert("Gyro disconnected!", Alert.AlertType.kWarning);
 
@@ -116,31 +131,6 @@ public class Drivetrain extends SubsystemBase {
         OdometryThread.getInstance().start();
 
         RobotState.getInstance().configurePoseEstimation(kinematics);
-
-        AutoBuilder.configure(
-                RobotState.getInstance()::getRobotPose,
-                RobotState.getInstance()::resetPose,
-                RobotState.getInstance()::getRobotVelocity,
-                this::runVelocity,
-                new PPHolonomicDriveController(new PIDConstants(5.0, 0.0, 0.0), new PIDConstants(5.0, 0.0, 0.0)),
-                new RobotConfig(
-                        Constants.ROBOT_MASS_KG,
-                        Constants.ROBOT_MOI_KG_M2,
-                        new ModuleConfig(
-                                TunerConstants.FrontLeft.WheelRadius,
-                                MAX_LINEAR_SPEED_MPS,
-                                WHEEL_COF,
-                                DCMotor.getKrakenX60(1).withReduction(TunerConstants.FrontLeft.DriveMotorGearRatio),
-                                TunerConstants.FrontLeft.SlipCurrent,
-                                1),
-                        MODULE_TRANSLATIONS),
-                AllianceFlipUtil::shouldFlip,
-                this);
-
-        Pathfinding.setPathfinder(new LocalADStarAK());
-        PathPlannerLogging.setLogActivePathCallback(
-                activePath -> RobotState.getInstance().setActiveTrajectory(activePath.toArray(new Pose2d[0])));
-        PathPlannerLogging.setLogTargetPoseCallback(RobotState.getInstance()::setCurrentTrajectoryTarget);
 
         for (int i = 0; i < 4; i++) {
             lastModulePositions[i] = modules[i].getPosition();
@@ -239,7 +229,17 @@ public class Drivetrain extends SubsystemBase {
         // Update tunable numbers
         LoggedTunableNumber.ifChanged(
                 hashCode(),
-                () -> headingController.setPID(headingKP.get(), headingKI.get(), headingKD.get()),
+                () -> trajectoryController.setTranslationPID(
+                        translationKP.get(), translationKI.get(), translationKD.get()),
+                translationKP,
+                translationKI,
+                translationKD);
+        LoggedTunableNumber.ifChanged(
+                hashCode(),
+                () -> {
+                    headingController.setPID(headingKP.get(), headingKI.get(), headingKD.get());
+                    trajectoryController.setHeadingPID(headingKP.get(), headingKI.get(), headingKD.get());
+                },
                 headingKP,
                 headingKI,
                 headingKD);
@@ -250,9 +250,14 @@ public class Drivetrain extends SubsystemBase {
      *
      * @param speeds Speeds in meters/sec
      */
-    public void runVelocity(ChassisSpeeds speeds) {
+    private void runVelocity(ChassisSpeeds speeds) {
         speeds.discretize(Constants.LOOP_PERIOD_SECS);
         desiredSpeeds = speeds;
+    }
+
+    public void followTrajectory(SwerveSample trajectorySample) {
+        RobotState.getInstance().setTrajectoryTarget(trajectorySample.getPose());
+        runVelocity(trajectoryController.calculate(RobotState.getInstance().getRobotPose(), trajectorySample));
     }
 
     /** Stops the drive. */
@@ -361,7 +366,9 @@ public class Drivetrain extends SubsystemBase {
                                                 RobotState.getInstance()
                                                         .getRotation()
                                                         .getRadians(),
-                                                heading.get().getRadians())
+                                                new TrapezoidProfile.State(
+                                                        heading.get().getRadians(),
+                                                        angularVelocityFFRadsPerSec.getAsDouble()))
                                         + angularVelocityFFRadsPerSec.getAsDouble())
                                 / MAX_ANGULAR_SPEED_RADS_PER_SEC,
                         fieldRelative)
