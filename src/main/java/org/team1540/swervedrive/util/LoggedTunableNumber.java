@@ -16,7 +16,7 @@ import org.team1540.swervedrive.Constants;
  * value not in dashboard.
  */
 public class LoggedTunableNumber implements DoubleSupplier {
-    private static final String tableKey = "TunableNumbers";
+    private static final String tableKey = "Tuning";
 
     private final String key;
     private boolean hasDefault = false;
@@ -54,7 +54,7 @@ public class LoggedTunableNumber implements DoubleSupplier {
             hasDefault = true;
             this.defaultValue = defaultValue;
             if (Constants.isTuningMode()) {
-                dashboardNumber = new LoggedNetworkNumber("SmartDashboard/" + key, defaultValue);
+                dashboardNumber = new LoggedNetworkNumber(key, defaultValue);
             }
         }
     }
