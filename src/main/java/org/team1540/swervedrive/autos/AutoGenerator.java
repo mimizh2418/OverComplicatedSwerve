@@ -57,7 +57,7 @@ public class AutoGenerator {
         AutoTrajectory traj = routine.trajectory("CenterLanePCBA");
         resetPoseInSim(routine, traj);
 
-        routine.active().onTrue(traj.cmd());
+        routine.active().whileTrue(traj.cmd());
 
         routine.active().whileTrue(SuperstructureCommands.speakerAimCommand(arm, shooter));
         traj.atTranslation("StartShoot").onTrue(indexer.persistentStateCommand(Indexer.IndexerState.FEED_SHOOTER));
@@ -81,6 +81,33 @@ public class AutoGenerator {
         traj.atTranslation("ShootD").onTrue(indexer.feedShooterCommand().andThen(indexer.continuousIntakeCommand()));
         traj.atTranslation("ShootE").onTrue(indexer.feedShooterCommand().andThen(indexer.continuousIntakeCommand()));
         traj.atTranslation("ShootF").onTrue(indexer.feedShooterCommand().andThen(indexer.continuousIntakeCommand()));
+
+        return routine;
+    }
+
+    public AutoRoutine ampLaneSprintDEFPAB() {
+        AutoRoutine routine = autoFactory.newRoutine("Amp Lane Sprint DEFPAB");
+        AutoTrajectory traj = routine.trajectory("AmpLaneSprintDEFPAB");
+        resetPoseInSim(routine, traj);
+
+        routine.active().whileTrue(traj.cmd());
+        routine.active().onTrue(Commands.runOnce(() -> indexer.setDefaultCommand(indexer.continuousIntakeCommand())));
+        routine.active().onFalse(Commands.runOnce(indexer::removeDefaultCommand));
+
+        traj.active()
+                .onTrue(arm.requestStateCommand(Arm.ArmState.STOW)
+                        .andThen(shooter.requestStateCommand(Shooter.ShooterState.EJECT)));
+        traj.atTranslation("EjectP", 0.25).onTrue(indexer.feedShooterCommand());
+        traj.atTranslation("EjectP", 0.25)
+                .onTrue(Commands.waitSeconds(0.5)
+                        .andThen(SuperstructureCommands.speakerAimCommand(arm, shooter))
+                        .until(traj.atTime("ArmDown")));
+        traj.atTranslation("ShootD", 0.25).onTrue(indexer.feedShooterCommand());
+        traj.atTranslation("ShootE", 0.25).onTrue(indexer.feedShooterCommand());
+        traj.atTranslation("ShootF", 0.25).onTrue(SuperstructureCommands.speakerAimCommand(arm, shooter));
+        traj.atTranslation("ShootF", 0.25).onTrue(Commands.waitSeconds(0.1).andThen(indexer.feedShooterCommand()));
+        traj.atTranslation("StartContinuousShoot", 0.5)
+                .onTrue(indexer.persistentStateCommand(Indexer.IndexerState.FEED_SHOOTER));
 
         return routine;
     }

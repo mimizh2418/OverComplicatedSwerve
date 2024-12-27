@@ -154,7 +154,7 @@ public class RobotContainer {
                         () -> true));
         driver.leftTrigger(0.5).whileTrue(indexer.continuousIntakeCommand());
         driver.leftBumper()
-                .whileTrue(indexer.persistentStateCommand(Indexer.IndexerState.EJECT)
+                .whileTrue(indexer.persistentStateCommand(Indexer.IndexerState.REVERSE)
                         .finallyDo(indexer::stop));
 
         Command aimCommand =
@@ -184,7 +184,8 @@ public class RobotContainer {
 
     private void configureAutoRoutines() {
         autoChooser.addRoutine("Center Lane PCBA", autoGenerator::centerLanePCBA);
-        autoChooser.addRoutine("Center Lane PCBADEF", autoGenerator::centerLanePCBADEFSprint);
+        autoChooser.addRoutine("Center Lane PCBADEF Sprint", autoGenerator::centerLanePCBADEFSprint);
+        autoChooser.addRoutine("Amp Lane Sprint DEFPAB", autoGenerator::ampLaneSprintDEFPAB);
     }
 
     /**

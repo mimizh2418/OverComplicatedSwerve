@@ -14,6 +14,7 @@ import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import java.util.Optional;
@@ -69,6 +70,8 @@ public class RobotState {
     private SwerveDrivePoseEstimator poseEstimator;
     private ChassisSpeeds robotVelocity = new ChassisSpeeds();
 
+    private final Timer resetTimer = new Timer();
+
     private Rotation2d lastGyroRotation = Rotation2d.kZero;
     private SwerveModulePosition[] lastModulePositions = new SwerveModulePosition[] {
         new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition(), new SwerveModulePosition()
@@ -110,6 +113,7 @@ public class RobotState {
                     VecBuilder.fill(0.1, 0.1, 0.1),
                     VecBuilder.fill(0.5, 0.5, 5.0));
             poseEstimatorConfigured = true;
+            resetTimer.restart();
         }
         invalidateAimingCache();
     }
@@ -125,7 +129,7 @@ public class RobotState {
     }
 
     public void addVisionObservation(AprilTagVision.PoseObservation observation, Vector<N3> stdDevs) {
-        if (poseEstimatorConfigured) {
+        if (poseEstimatorConfigured && resetTimer.hasElapsed(0.25)) {
             poseEstimator.setVisionMeasurementStdDevs(stdDevs);
             poseEstimator.addVisionMeasurement(observation.pose().toPose2d(), observation.timestampSecs());
             invalidateAimingCache();
@@ -153,8 +157,11 @@ public class RobotState {
     }
 
     public void resetPose(Pose2d newPose) {
-        if (poseEstimatorConfigured) poseEstimator.resetPosition(lastGyroRotation, lastModulePositions, newPose);
-        if (driveSimConfigured) driveSim.setSimulationWorldPose(newPose);
+        if (poseEstimatorConfigured) {
+            if (driveSimConfigured) driveSim.setSimulationWorldPose(newPose);
+            poseEstimator.resetPosition(lastGyroRotation, lastModulePositions, newPose);
+            resetTimer.restart();
+        }
         invalidateAimingCache();
     }
 

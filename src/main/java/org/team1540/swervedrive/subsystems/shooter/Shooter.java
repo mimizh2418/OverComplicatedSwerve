@@ -27,6 +27,7 @@ public class Shooter extends SubsystemBase {
 
     public enum ShooterState {
         IDLE(() -> new ShooterSpeeds(0.0, 0.0)),
+        EJECT(() -> new ShooterSpeeds(700.0, 700.0)),
         SPEAKER(() -> RobotState.getInstance().getSpeakerAimingParameters().shooterSpeeds()),
         PASS(() -> RobotState.getInstance().getPassingAimingParameters().shooterSpeeds()),
         LOW_PASS(() -> RobotState.getInstance().getLowPassingAimingParameters().shooterSpeeds());

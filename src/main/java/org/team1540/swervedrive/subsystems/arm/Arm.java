@@ -131,6 +131,10 @@ public class Arm extends SubsystemBase {
         return Commands.runOnce(() -> setGoal(state), this);
     }
 
+    public Command persistentStateCommand(ArmState state) {
+        return Commands.run(() -> setGoal(state), this).finallyDo(this::stop);
+    }
+
     /** Returns a blocking command that sets the arm state and waits for the arm to reach that state.*/
     public Command blockingStateCommand(ArmState state) {
         return requestStateCommand(state).andThen(Commands.waitUntil(this::atGoal));

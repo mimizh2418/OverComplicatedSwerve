@@ -25,7 +25,7 @@ public class Indexer extends SubsystemBase {
     public enum IndexerState {
         IDLE(0.0, 0.0),
         INTAKE(1.0, 0.0),
-        EJECT(-1.0, -1.0),
+        REVERSE(-1.0, -1.0),
         FEED_SHOOTER(1.0, 1.0),
         FEED_AMP(1.0, -1.0);
 
