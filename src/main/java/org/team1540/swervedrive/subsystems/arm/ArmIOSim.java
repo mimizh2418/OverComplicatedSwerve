@@ -61,14 +61,6 @@ public class ArmIOSim implements ArmIO {
         inputs.appliedVolts = new double[] {appliedVoltage, appliedVoltage};
         inputs.supplyCurrentAmps = new double[] {sim.getCurrentDrawAmps()};
         inputs.statorCurrentAmps = new double[] {sim.getCurrentDrawAmps()};
-
-        if (isClosedLoop) {
-            appliedVoltage = pid.calculate(inputs.position.getRotations())
-                    + ff.calculate(inputs.position.getMeasure(), RotationsPerSecond.of(inputs.velocityRPS))
-                            .in(Volts);
-        }
-        sim.setInputVoltage(appliedVoltage);
-        sim.update(Constants.LOOP_PERIOD_SECS);
     }
 
     @Override
