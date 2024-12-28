@@ -11,11 +11,7 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import org.ironmaple.simulation.SimulatedArena;
 import org.team1540.swervedrive.autos.AutoGenerator;
-import org.team1540.swervedrive.commands.TeleopCommands;
-import org.team1540.swervedrive.subsystems.arm.Arm;
 import org.team1540.swervedrive.subsystems.drive.*;
-import org.team1540.swervedrive.subsystems.indexer.Indexer;
-import org.team1540.swervedrive.subsystems.shooter.Shooter;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
 import org.team1540.swervedrive.util.auto.LoggedAutoChooser;
@@ -31,9 +27,6 @@ public class RobotContainer {
 
     // Subsystems
     public final Drivetrain drivetrain;
-    public final Arm arm;
-    public final Indexer indexer;
-    public final Shooter shooter;
     public final AprilTagVision aprilTagVision;
 
     // Controller
@@ -51,42 +44,30 @@ public class RobotContainer {
             case REAL:
                 // Real robot, instantiate hardware IO implementations
                 drivetrain = Drivetrain.createReal();
-                indexer = Indexer.createReal();
-                arm = Arm.createReal();
-                shooter = Shooter.createReal();
                 aprilTagVision = AprilTagVision.createReal();
                 break;
 
             case SIM:
                 // Sim robot, instantiate physics sim IO implementations
                 drivetrain = Drivetrain.createSim();
-                indexer = Indexer.createSim(robotState.getDriveSim().orElseThrow());
-                arm = Arm.createSim();
-                shooter = Shooter.createSim();
                 aprilTagVision = AprilTagVision.createSim();
 
-                RobotState.getInstance().resetPose(FieldConstants.getSubwooferStartingPose());
                 SimulatedArena.getInstance().resetFieldForAuto();
                 break;
 
             default:
                 // Replayed robot, disable IO implementations
                 drivetrain = Drivetrain.createDummy();
-                indexer = Indexer.createDummy();
-                arm = Arm.createDummy();
-                shooter = Shooter.createDummy();
                 aprilTagVision = AprilTagVision.createDummy();
                 break;
         }
 
-        autoGenerator = new AutoGenerator(drivetrain, indexer, arm, shooter);
+        autoGenerator = new AutoGenerator(drivetrain);
         autoChooser = new LoggedAutoChooser("Auto Chooser");
 
         if (Constants.isTuningMode()) {
             autoChooser.addCmd("Drive FF Characterization", drivetrain::feedforwardCharacterization);
             autoChooser.addCmd("Drive Wheel Radius Characterization", drivetrain::wheelRadiusCharacterization);
-            autoChooser.addCmd("Arm FF Characterization", arm::feedforwardCharacterization);
-            autoChooser.addCmd("Shooter FF Characterization", shooter::feedforwardCharacterization);
         }
 
         // Configure periodic callbacks
@@ -104,10 +85,7 @@ public class RobotContainer {
 
     private void configurePeriodicCallbacks() {
         CommandScheduler.getInstance()
-                .schedule(Commands.run(() -> {
-                            robotState.updateMechanismVisualization();
-                            AlertManager.getInstance().update();
-                        })
+                .schedule(Commands.run(AlertManager.getInstance()::update)
                         .ignoringDisable(true)
                         .withName("Periodic Callbacks"));
 
@@ -152,41 +130,18 @@ public class RobotContainer {
                         driver.getHID(),
                         () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kCW_90deg),
                         () -> true));
-        driver.leftTrigger(0.5).whileTrue(indexer.continuousIntakeCommand());
-        driver.leftBumper()
-                .whileTrue(indexer.persistentStateCommand(Indexer.IndexerState.REVERSE)
-                        .finallyDo(indexer::stop));
-
-        Command aimCommand =
-                TeleopCommands.teleopDynamicAimCommand(driver.getHID(), drivetrain, arm, shooter, () -> true);
-        Command stageAmpCommand = TeleopCommands.teleopStageAmpCommand(driver.getHID(), drivetrain, arm, () -> true);
-        driver.rightBumper().toggleOnTrue(aimCommand);
-        driver.y().and(indexer::hasNote).toggleOnTrue(stageAmpCommand);
-
-        driver.rightTrigger()
-                .and(stageAmpCommand::isScheduled)
-                .onTrue(indexer.feedAmpCommand().finallyDo(stageAmpCommand::cancel));
-        driver.rightTrigger()
-                .and(aimCommand::isScheduled)
-                .onTrue(Commands.waitUntil(shooter::atGoal)
-                        .withTimeout(0.15)
-                        .andThen(indexer.feedShooterCommand().finallyDo(aimCommand::cancel)));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
             driver.back()
                     .onTrue(Commands.runOnce(() -> {
                                 SimulatedArena.getInstance().resetFieldForAuto();
-                                robotState.resetPose(FieldConstants.getSubwooferStartingPose());
+                                robotState.resetPose(FieldConstants.MIDFIELD);
                             })
                             .ignoringDisable(true));
         }
     }
 
-    private void configureAutoRoutines() {
-        autoChooser.addRoutine("Center Lane PCBA", autoGenerator::centerLanePCBA);
-        autoChooser.addRoutine("Center Lane PCBADEF Sprint", autoGenerator::centerLanePCBADEFSprint);
-        autoChooser.addRoutine("Amp Lane Sprint DEFPAB", autoGenerator::ampLaneSprintDEFPAB);
-    }
+    private void configureAutoRoutines() {}
 
     /**
      * Use this to pass the autonomous command to the main {@link Robot} class.
