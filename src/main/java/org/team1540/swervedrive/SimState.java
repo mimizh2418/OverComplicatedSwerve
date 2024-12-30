@@ -35,7 +35,7 @@ public class SimState {
     private static final double INTAKE_VOLTAGE_INTEGRAL_THRESH = 12.0 * INTAKE_TRANSFER_TIME_SECS;
     private static final double FEEDER_VOLTAGE_INTEGRAL_THRESH = 12.0 * FEEDER_TRANSFER_TIME_SECS;
 
-    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 14.25 / 8500;
+    private static final double NOTE_VELOCITY_COEFF_MPS_PER_RPM = 15.0 / 8500.0;
 
     private boolean configured = false;
     private SwerveDriveSimulation driveSim;

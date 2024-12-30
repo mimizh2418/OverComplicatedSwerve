@@ -33,4 +33,10 @@ public class IntakeCommands {
                         feeder.persistentStateCommand(Feeder.FeederState.FEED))
                 .onlyIf(() -> intake.hasNote() || feeder.hasNote());
     }
+
+    public static Command continuousFeedCommand(Intake intake, Feeder feeder) {
+        return Commands.parallel(
+                intake.persistentStateCommand(Intake.IntakeState.INTAKE),
+                feeder.persistentStateCommand(Feeder.FeederState.FEED));
+    }
 }

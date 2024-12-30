@@ -91,7 +91,7 @@ public class RobotContainer {
                 break;
         }
 
-        autoGenerator = new AutoGenerator(drivetrain);
+        autoGenerator = new AutoGenerator(drivetrain, intake, feeder, shooter, turret, pivot);
         autoChooser = new LoggedAutoChooser("Auto Chooser");
 
         if (Constants.isTuningMode()) {
@@ -176,7 +176,7 @@ public class RobotContainer {
         Command ampAimCommand = AimingCommands.ampAimCommand(turret, pivot, shooter);
 
         driver.rightBumper().toggleOnTrue(shootingAimCommand);
-        driver.y().toggleOnTrue(ampAimCommand);
+        driver.y().and(() -> intake.hasNote() || feeder.hasNote()).toggleOnTrue(ampAimCommand);
 
         driver.rightTrigger()
                 .and(shootingAimCommand::isScheduled)
@@ -187,7 +187,7 @@ public class RobotContainer {
                 .and(shooter::atGoal)
                 .and(pivot::atGoal)
                 .and(turret::atGoal)
-                .onTrue(IntakeCommands.feedCommand(intake, feeder));
+                .onTrue(IntakeCommands.feedCommand(intake, feeder).andThen(ampAimCommand::cancel));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
             driver.back()
@@ -199,7 +199,9 @@ public class RobotContainer {
         }
     }
 
-    private void configureAutoRoutines() {}
+    private void configureAutoRoutines() {
+        autoChooser.addRoutine("Source Lane PCBADEF Sprint", autoGenerator::sourceLanePCBADEFSprint);
+    }
 
     /**
      * Use this to pass the autonomous command to the main {@link Robot} class.

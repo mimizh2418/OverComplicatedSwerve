@@ -139,7 +139,7 @@ public class Turret extends SubsystemBase {
     }
 
     public Command persistentStateCommand(TurretState state) {
-        return Commands.run(() -> setGoal(state), this).finallyDo(this::stop);
+        return Commands.run(() -> setGoal(state), this).finallyDo(() -> setGoal(TurretState.STOW));
     }
 
     public Command dynamicTrackingCommand() {
