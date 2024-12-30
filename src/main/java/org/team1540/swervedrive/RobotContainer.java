@@ -11,7 +11,14 @@ import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import org.ironmaple.simulation.SimulatedArena;
 import org.team1540.swervedrive.autos.AutoGenerator;
+import org.team1540.swervedrive.commands.AimingCommands;
+import org.team1540.swervedrive.commands.IntakeCommands;
 import org.team1540.swervedrive.subsystems.drive.*;
+import org.team1540.swervedrive.subsystems.feeder.Feeder;
+import org.team1540.swervedrive.subsystems.intake.Intake;
+import org.team1540.swervedrive.subsystems.pivot.Pivot;
+import org.team1540.swervedrive.subsystems.shooter.Shooter;
+import org.team1540.swervedrive.subsystems.turret.Turret;
 import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 import org.team1540.swervedrive.util.AllianceFlipUtil;
 import org.team1540.swervedrive.util.auto.LoggedAutoChooser;
@@ -24,9 +31,15 @@ import org.team1540.swervedrive.util.auto.LoggedAutoChooser;
  */
 public class RobotContainer {
     private final RobotState robotState = RobotState.getInstance();
+    private final SimState simState = SimState.getInstance();
 
     // Subsystems
     public final Drivetrain drivetrain;
+    public final Intake intake;
+    public final Feeder feeder;
+    public final Shooter shooter;
+    public final Turret turret;
+    public final Pivot pivot;
     public final AprilTagVision aprilTagVision;
 
     // Controller
@@ -44,20 +57,36 @@ public class RobotContainer {
             case REAL:
                 // Real robot, instantiate hardware IO implementations
                 drivetrain = Drivetrain.createReal();
+                intake = Intake.createReal();
+                feeder = Feeder.createReal();
+                shooter = Shooter.createReal();
+                turret = Turret.createReal();
+                pivot = Pivot.createReal();
                 aprilTagVision = AprilTagVision.createReal();
                 break;
 
             case SIM:
                 // Sim robot, instantiate physics sim IO implementations
                 drivetrain = Drivetrain.createSim();
+                intake = Intake.createSim();
+                feeder = Feeder.createSim();
+                shooter = Shooter.createSim();
+                turret = Turret.createSim();
+                pivot = Pivot.createSim();
                 aprilTagVision = AprilTagVision.createSim();
 
+                RobotState.getInstance().resetPose(FieldConstants.getSubwooferStartingPose());
                 SimulatedArena.getInstance().resetFieldForAuto();
                 break;
 
             default:
                 // Replayed robot, disable IO implementations
                 drivetrain = Drivetrain.createDummy();
+                intake = Intake.createDummy();
+                feeder = Feeder.createDummy();
+                shooter = Shooter.createDummy();
+                turret = Turret.createDummy();
+                pivot = Pivot.createDummy();
                 aprilTagVision = AprilTagVision.createDummy();
                 break;
         }
@@ -68,6 +97,9 @@ public class RobotContainer {
         if (Constants.isTuningMode()) {
             autoChooser.addCmd("Drive FF Characterization", drivetrain::feedforwardCharacterization);
             autoChooser.addCmd("Drive Wheel Radius Characterization", drivetrain::wheelRadiusCharacterization);
+            autoChooser.addCmd("Turret FF Characterization", turret::feedforwardCharacterization);
+            autoChooser.addCmd("Pivot FF Characterization", pivot::feedforwardCharacterization);
+            autoChooser.addCmd("Shooter FF Characterization", shooter::feedforwardCharacterization);
         }
 
         // Configure periodic callbacks
@@ -87,11 +119,15 @@ public class RobotContainer {
         CommandScheduler.getInstance()
                 .schedule(Commands.run(AlertManager.getInstance()::update)
                         .ignoringDisable(true)
-                        .withName("Periodic Callbacks"));
+                        .withName("AlertManager update"));
+        CommandScheduler.getInstance()
+                .schedule(Commands.run(RobotState.getInstance()::updateMechanismVisualization)
+                        .ignoringDisable(true)
+                        .withName("Mechanism visualization update"));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
             CommandScheduler.getInstance()
-                    .schedule(Commands.run(robotState::updateSimState)
+                    .schedule(Commands.run(SimState.getInstance()::update)
                             .ignoringDisable(true)
                             .withName("Simulation update"));
         }
@@ -131,11 +167,20 @@ public class RobotContainer {
                         () -> AllianceFlipUtil.maybeReverseRotation(Rotation2d.kCW_90deg),
                         () -> true));
 
+        turret.setDefaultCommand(turret.dynamicTrackingCommand());
+
+        driver.leftTrigger(0.5).whileTrue(IntakeCommands.continuousIntakeCommand(intake, feeder));
+        driver.leftBumper().whileTrue(IntakeCommands.reverseCommand(intake, feeder));
+
+        Command aimCommand = AimingCommands.dynamicAimCommand(turret, pivot, shooter);
+        driver.rightBumper().toggleOnTrue(aimCommand);
+        driver.rightTrigger().onTrue(IntakeCommands.feedCommand(intake, feeder).onlyIf(shooter::atGoal));
+
         if (Constants.currentMode == Constants.Mode.SIM) {
             driver.back()
                     .onTrue(Commands.runOnce(() -> {
                                 SimulatedArena.getInstance().resetFieldForAuto();
-                                robotState.resetPose(FieldConstants.MIDFIELD);
+                                robotState.resetPose(FieldConstants.getSubwooferStartingPose());
                             })
                             .ignoringDisable(true));
         }

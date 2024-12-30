@@ -44,7 +44,7 @@ public class ModuleIOSim implements ModuleIO {
         this.turnMotor = moduleSim.useGenericControllerForSteer().withCurrentLimit(Amps.of(40.0));
 
         drivePID = new PIDController(0.8, 0.0, 0.0);
-        driveFF = new SimpleMotorFeedforward(0.05098, 0.83092);
+        driveFF = new SimpleMotorFeedforward(0.04822, 0.84616);
         turnPID = new PIDController(75.0, 0.0, 0.0);
 
         turnPID.enableContinuousInput(-0.5, 0.5);

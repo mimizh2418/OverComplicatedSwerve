@@ -23,6 +23,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
+import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.drivesims.GyroSimulation;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
@@ -32,8 +33,10 @@ import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
 import org.team1540.swervedrive.Robot;
 import org.team1540.swervedrive.RobotState;
+import org.team1540.swervedrive.SimState;
 import org.team1540.swervedrive.commands.CharacterizationCommands;
 import org.team1540.swervedrive.generated.TunerConstants;
+import org.team1540.swervedrive.subsystems.intake.Intake;
 import org.team1540.swervedrive.util.*;
 
 public class Drivetrain extends SubsystemBase {
@@ -61,7 +64,7 @@ public class Drivetrain extends SubsystemBase {
     public static final double MAX_STEER_SPEED_RADS_PER_SEC =
             DCMotor.getFalcon500(1).withReduction(TunerConstants.FrontLeft.SteerMotorGearRatio).freeSpeedRadPerSec;
 
-    public static final double WHEEL_COF = 1.2;
+    public static final double WHEEL_COF = 1.1;
 
     private static final Translation2d[] MODULE_TRANSLATIONS = new Translation2d[] {
         new Translation2d(TunerConstants.FrontLeft.LocationX, TunerConstants.FrontLeft.LocationY),
@@ -77,7 +80,7 @@ public class Drivetrain extends SubsystemBase {
     private static final LoggedTunableNumber translationKI = new LoggedTunableNumber("Drivetrain/Translation/kI", 0.0);
     private static final LoggedTunableNumber translationKD = new LoggedTunableNumber("Drivetrain/Translation/kD", 0.0);
 
-    private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 6.5);
+    private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 7.5);
     private static final LoggedTunableNumber headingKI = new LoggedTunableNumber("Drivetrain/Heading/kI", 0.0);
     private static final LoggedTunableNumber headingKD = new LoggedTunableNumber("Drivetrain/Heading/kD", 0.0);
 
@@ -283,8 +286,8 @@ public class Drivetrain extends SubsystemBase {
     public void zeroFieldOrientation() {
         fieldOrientationOffset = rawGyroRotation.minus(
                 AllianceFlipUtil.shouldFlip()
-                        ? RobotState.getInstance().getRotation().plus(Rotation2d.k180deg)
-                        : RobotState.getInstance().getRotation());
+                        ? RobotState.getInstance().getRobotRotation().plus(Rotation2d.k180deg)
+                        : RobotState.getInstance().getRobotRotation());
     }
 
     /** Sets the brake mode of all modules */
@@ -362,7 +365,7 @@ public class Drivetrain extends SubsystemBase {
                                 -controller.getLeftY(), -controller.getLeftX(), 0.1),
                         () -> (headingController.calculate(
                                                 RobotState.getInstance()
-                                                        .getRotation()
+                                                        .getRobotRotation()
                                                         .getRadians(),
                                                 new TrapezoidProfile.State(
                                                         heading.get().getRadians(),
@@ -371,7 +374,7 @@ public class Drivetrain extends SubsystemBase {
                                 / MAX_ANGULAR_SPEED_RADS_PER_SEC,
                         fieldRelative)
                 .beforeStarting(() -> headingController.reset(
-                        RobotState.getInstance().getRotation().getRadians(),
+                        RobotState.getInstance().getRobotRotation().getRadians(),
                         RobotState.getInstance().getRobotVelocity().omegaRadiansPerSecond))
                 .alongWith(Commands.run(() -> Logger.recordOutput("Drivetrain/HeadingGoal", heading.get())))
                 .until(() -> Math.abs(controller.getRightX()) >= 0.1);
@@ -415,7 +418,8 @@ public class Drivetrain extends SubsystemBase {
                 .withRobotMass(Kilograms.of(Constants.ROBOT_MASS_KG))
                 .withCustomModuleTranslations(MODULE_TRANSLATIONS)
                 .withBumperSize(
-                        Meters.of(Constants.BUMPER_LENGTH_X_METERS), Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
+                        Meters.of(Constants.BUMPER_LENGTH_X_METERS - Intake.EXTENSION_METERS),
+                        Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
                 .withGyro(() -> new GyroSimulation(0.12 / 120, 0.02))
                 .withSwerveModule(() -> new SwerveModuleSimulation(
                         DCMotor.getKrakenX60Foc(1),
@@ -428,8 +432,16 @@ public class Drivetrain extends SubsystemBase {
                         KilogramSquareMeters.of(TunerConstants.FrontLeft.SteerInertia),
                         WHEEL_COF));
         var driveSim = new SwerveDriveSimulation(simConfig, Pose2d.kZero);
+        var dummyIntake = new IntakeSimulation(
+                "",
+                driveSim,
+                Meters.of(Constants.BUMPER_LENGTH_Y_METERS),
+                Meters.of(Intake.EXTENSION_METERS),
+                IntakeSimulation.IntakeSide.FRONT,
+                0);
+        dummyIntake.startIntake();
 
-        RobotState.getInstance().configureDriveSim(driveSim);
+        SimState.getInstance().configure(driveSim);
         return new Drivetrain(
                 new GyroIOSim(driveSim.getGyroSimulation()),
                 new ModuleIOSim(TunerConstants.FrontLeft, driveSim.getModules()[0]),

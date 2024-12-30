@@ -32,9 +32,9 @@ public final class Constants {
 
     public static final double LOOP_PERIOD_SECS = 0.02;
 
-    public static final double ROBOT_MASS_KG = Units.lbsToKilograms(135);
-    public static final double ROBOT_MOI_KG_M2 = 5.8;
+    public static final double ROBOT_MASS_KG = Units.lbsToKilograms(120);
+    public static final double ROBOT_MOI_KG_M2 = 5.0;
 
-    public static final double BUMPER_LENGTH_X_METERS = Units.inchesToMeters(37.0);
+    public static final double BUMPER_LENGTH_X_METERS = Units.inchesToMeters(36.75);
     public static final double BUMPER_LENGTH_Y_METERS = Units.inchesToMeters(33.0);
 }

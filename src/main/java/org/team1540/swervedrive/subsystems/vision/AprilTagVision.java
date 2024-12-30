@@ -65,49 +65,15 @@ public class AprilTagVision extends SubsystemBase {
 
     private static final CameraConfig[] cameraConfigs = new CameraConfig[] {
         new CameraConfig(
-                "northstar-0",
+                "limelight",
                 new Transform3d(
-                        Units.inchesToMeters(8.875),
-                        Units.inchesToMeters(10.5),
-                        Units.inchesToMeters(8.25),
-                        new Rotation3d(0.0, Math.toRadians(-28.125), 0.0)
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(30)))),
-                Rotation2d.fromDegrees(75),
-                new Dimension(1600, 1200),
+                        Units.inchesToMeters(9.112),
+                        0.0,
+                        Units.inchesToMeters(8.421),
+                        new Rotation3d(0.0, Math.toRadians(-26.79), 0.0)),
+                Rotation2d.fromDegrees(70),
+                new Dimension(1280, 800),
                 1.0),
-        new CameraConfig(
-                "northstar-1",
-                new Transform3d(
-                        Units.inchesToMeters(3.25),
-                        Units.inchesToMeters(5.0),
-                        Units.inchesToMeters(6.4),
-                        new Rotation3d(0.0, Math.toRadians(-16.876), 0.0)
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-4.709)))),
-                Rotation2d.fromDegrees(45),
-                new Dimension(1600, 1200),
-                1.5),
-        new CameraConfig(
-                "northstar-2",
-                new Transform3d(
-                        Units.inchesToMeters(8.875),
-                        Units.inchesToMeters(-10.5),
-                        Units.inchesToMeters(8.25),
-                        new Rotation3d(0.0, Math.toRadians(-28.125), 0.0)
-                                .rotateBy(new Rotation3d(0.0, 0.0, Math.toRadians(-30.0)))),
-                Rotation2d.fromDegrees(75),
-                new Dimension(1600, 1200),
-                1.0),
-        new CameraConfig(
-                "northstar-3",
-                new Transform3d(
-                        Units.inchesToMeters(-16.0),
-                        Units.inchesToMeters(-12.0),
-                        Units.inchesToMeters(8.5),
-                        new Rotation3d(0.0, Units.degreesToRadians(-33.75), 0.0)
-                                .rotateBy(new Rotation3d(0.0, 0.0, Units.degreesToRadians(176.386)))),
-                Rotation2d.fromDegrees(90),
-                new Dimension(1600, 1200),
-                0.8)
     };
 
     // Pose filtering parameters
@@ -172,7 +138,7 @@ public class AprilTagVision extends SubsystemBase {
                         / observation.numTags
                         * (1 / cameraConfigs[i].trustCoeff);
                 Vector<N3> stdDevs = observation.source.stdDevBaseline.times(stdDevFactor);
-                RobotState.getInstance().addVisionObservation(observation, stdDevs);
+                RobotState.getInstance().addTurretPoseObservation(observation, stdDevs);
             }
 
             disconnectedAlerts[i].set(!inputs[i].connected);
@@ -196,30 +162,18 @@ public class AprilTagVision extends SubsystemBase {
     public static AprilTagVision createReal() {
         if (Constants.currentMode != Constants.Mode.REAL)
             DriverStation.reportWarning("Using real AprilTagVision on simulated robot", false);
-        return new AprilTagVision(
-                new AprilTagVisionIOPhoton(cameraConfigs[0]),
-                new AprilTagVisionIOPhoton(cameraConfigs[1]),
-                new AprilTagVisionIOPhoton(cameraConfigs[2]),
-                new AprilTagVisionIOPhoton(cameraConfigs[3]));
+        return new AprilTagVision(new AprilTagVisionIOPhoton(cameraConfigs[0]));
     }
 
     public static AprilTagVision createSim() {
         if (Constants.currentMode != Constants.Mode.SIM)
             DriverStation.reportWarning("Using simulated AprilTagVision on real robot", false);
-        return new AprilTagVision(
-                new AprilTagVisionIOPhotonSim(cameraConfigs[0]),
-                new AprilTagVisionIOPhotonSim(cameraConfigs[1]),
-                new AprilTagVisionIOPhotonSim(cameraConfigs[2]),
-                new AprilTagVisionIOPhotonSim(cameraConfigs[3]));
+        return new AprilTagVision(new AprilTagVisionIOPhotonSim(cameraConfigs[0]));
     }
 
     public static AprilTagVision createDummy() {
         if (Constants.currentMode == Constants.Mode.REAL)
             DriverStation.reportWarning("Using dummy AprilTagVision on real robot", false);
-        return new AprilTagVision(
-                new AprilTagVisionIO() {},
-                new AprilTagVisionIO() {},
-                new AprilTagVisionIO() {},
-                new AprilTagVisionIO() {});
+        return new AprilTagVision(new AprilTagVisionIO() {});
     }
 }

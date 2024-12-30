@@ -1,10 +1,13 @@
 package org.team1540.swervedrive.subsystems.vision;
 
+import edu.wpi.first.math.geometry.Transform2d;
 import org.photonvision.simulation.PhotonCameraSim;
 import org.photonvision.simulation.SimCameraProperties;
 import org.photonvision.simulation.VisionSystemSim;
 import org.team1540.swervedrive.FieldConstants;
 import org.team1540.swervedrive.RobotState;
+import org.team1540.swervedrive.SimState;
+import org.team1540.swervedrive.subsystems.turret.Turret;
 
 public class AprilTagVisionIOPhotonSim extends AprilTagVisionIOPhoton {
     private static VisionSystemSim visionSim;
@@ -34,7 +37,11 @@ public class AprilTagVisionIOPhotonSim extends AprilTagVisionIOPhoton {
 
     @Override
     public void updateInputs(AprilTagVisionIOInputs inputs) {
-        visionSim.update(RobotState.getInstance().getSimulatedRobotPose());
+        visionSim.update(SimState.getInstance()
+                .getSimulatedRobotPose()
+                .transformBy(new Transform2d(
+                        Turret.ORIGIN_METERS.toTranslation2d(),
+                        RobotState.getInstance().getTurretAngle())));
         super.updateInputs(inputs);
     }
 }
