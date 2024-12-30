@@ -1,22 +1,23 @@
 package org.team1540.swervedrive;
 
 import static edu.wpi.first.units.Units.Meters;
+import static org.ironmaple.simulation.seasonspecific.crescendo2024.CrescendoNoteOnField.*;
 
 import edu.wpi.first.math.geometry.*;
 import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
+import org.dyn4j.geometry.Geometry;
 import org.ironmaple.simulation.IntakeSimulation;
 import org.ironmaple.simulation.SimulatedArena;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.gamepieces.GamePieceProjectile;
 import org.ironmaple.simulation.seasonspecific.crescendo2024.CrescendoNoteOnField;
-import org.ironmaple.simulation.seasonspecific.crescendo2024.NoteOnFly;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.subsystems.intake.Intake;
 import org.team1540.swervedrive.subsystems.pivot.Pivot;
 import org.team1540.swervedrive.subsystems.turret.Turret;
-import org.team1540.swervedrive.util.AllianceFlipUtil;
+import org.team1540.swervedrive.subsystems.vision.AprilTagVision;
 
 public class SimState {
     private static SimState instance = null;
@@ -148,6 +149,22 @@ public class SimState {
             }
         } else feederVoltageIntegral = 0.0;
 
+        Pose3d noteInRobotPose = Pose3d.kZero;
+        if (intakeHasNote || feederHasNote) {
+            noteInRobotPose = new Pose3d(getSimulatedRobotPose())
+                    .transformBy(new Transform3d(
+                            Units.inchesToMeters(8.0), 0.0, Units.inchesToMeters(5.0625), Rotation3d.kZero));
+        }
+        Logger.recordOutput("SimState/NoteInRobotPose", noteInRobotPose);
+
+        Logger.recordOutput(
+                "SimState/CameraPose",
+                new Pose3d(getSimulatedRobotPose())
+                        .transformBy(new Transform3d(
+                                Turret.ORIGIN_METERS,
+                                new Rotation3d(RobotState.getInstance().getTurretAngle())))
+                        .transformBy(AprilTagVision.cameraConfigs[0].robotToCamera()));
+
         SimulatedArena.getInstance().simulationPeriodic();
     }
 
@@ -164,33 +181,70 @@ public class SimState {
     private void shootNote() {
         if (!configured) return;
         if (!intakeSim.obtainGamePieceFromIntake()) return;
-        Pose3d robotToShooter = new Pose3d(
-                        Turret.ORIGIN_METERS,
-                        new Rotation3d(RobotState.getInstance().getTurretAngle()))
+        Pose3d noteLaunchPose = new Pose3d(getSimulatedRobotPose())
                 .transformBy(new Transform3d(
-                        Pivot.TURRET_TO_PIVOT_METERS,
-                        new Rotation3d(
-                                0.0, -RobotState.getInstance().getPivotAngle().getRadians(), 0.0)))
-                .transformBy(new Transform3d(Pivot.LENGTH_METERS, 0.0, Units.inchesToMeters(1.25), Rotation3d.kZero));
+                                Turret.ORIGIN_METERS,
+                                new Rotation3d(RobotState.getInstance().getTurretAngle()))
+                        .plus(new Transform3d(
+                                Pivot.TURRET_TO_PIVOT_METERS,
+                                new Rotation3d(
+                                        0.0,
+                                        -RobotState.getInstance()
+                                                .getPivotAngle()
+                                                .getRadians(),
+                                        0.0)))
+                        .plus(new Transform3d(Pivot.LENGTH_METERS, 0.0, Units.inchesToMeters(1.25), Rotation3d.kZero)));
+        Rotation2d absoluteTurretAngle = getSimulatedRobotPose()
+                .getRotation()
+                .plus(RobotState.getInstance().getTurretAngle());
         ChassisSpeeds turretSpeeds = driveSim.getDriveTrainSimulatedChassisSpeedsFieldRelative();
         turretSpeeds.omegaRadiansPerSecond +=
                 Units.rotationsToRadians(RobotState.getInstance().getTurretVelocityRPS());
-        GamePieceProjectile note = new NoteOnFly(
-                        getSimulatedRobotPose().getTranslation(),
-                        robotToShooter
-                                .getTranslation()
-                                .toTranslation2d()
-                                .rotateBy(AllianceFlipUtil.maybeReverseRotation(
-                                        getSimulatedRobotPose().getRotation().plus(Rotation2d.k180deg))),
-                        turretSpeeds.div(2.0),
-                        getSimulatedRobotPose()
-                                .getRotation()
-                                .plus(RobotState.getInstance().getTurretAngle()),
-                        robotToShooter.getZ(),
-                        avgShooterRPM * NOTE_VELOCITY_COEFF_MPS_PER_RPM,
-                        RobotState.getInstance().getPivotAngle().getRadians())
-                .enableBecomeNoteOnFieldAfterTouchGround()
-                .withTouchGroundHeight(0.05);
+        double launchSpeedMPS = avgShooterRPM * NOTE_VELOCITY_COEFF_MPS_PER_RPM;
+        GamePieceProjectile note = new GamePieceProjectile(
+                        "Note",
+                        noteLaunchPose.getTranslation().toTranslation2d(),
+                        calculateInitialProjectileVelocityMPS(
+                                Turret.ORIGIN_METERS.toTranslation2d(),
+                                turretSpeeds,
+                                getSimulatedRobotPose()
+                                        .getRotation()
+                                        .plus(RobotState.getInstance().getTurretAngle()),
+                                launchSpeedMPS
+                                        * RobotState.getInstance()
+                                                .getPivotAngle()
+                                                .getCos()),
+                        noteLaunchPose.getZ(),
+                        launchSpeedMPS
+                                * RobotState.getInstance().getPivotAngle().getSin(),
+                        new Rotation3d(
+                                        0.0,
+                                        -RobotState.getInstance()
+                                                .getPivotAngle()
+                                                .getRadians(),
+                                        0.0)
+                                .rotateBy(new Rotation3d(0.0, 0.0, absoluteTurretAngle.getRadians())))
+                .enableBecomesGamePieceOnFieldAfterTouchGround(
+                        Geometry.createCircle(NOTE_DIAMETER / 2.0), NOTE_HEIGHT, NOTE_WEIGHT_KG)
+                .withTouchGroundHeight(NOTE_DIAMETER / 2.0);
         SimulatedArena.getInstance().addGamePieceProjectile(note);
+    }
+
+    private static Translation2d calculateInitialProjectileVelocityMPS(
+            Translation2d shooterPositionOnRobot,
+            ChassisSpeeds chassisSpeeds,
+            Rotation2d chassisFacing,
+            double groundSpeedMPS) {
+        final Translation2d
+                chassisTranslationalVelocity =
+                        new Translation2d(chassisSpeeds.vxMetersPerSecond, chassisSpeeds.vyMetersPerSecond),
+                shooterGroundVelocityDueToChassisRotation =
+                        shooterPositionOnRobot
+                                .rotateBy(chassisFacing)
+                                .rotateBy(Rotation2d.fromDegrees(90))
+                                .times(chassisSpeeds.omegaRadiansPerSecond),
+                shooterGroundVelocity = chassisTranslationalVelocity.plus(shooterGroundVelocityDueToChassisRotation);
+
+        return shooterGroundVelocity.plus(new Translation2d(groundSpeedMPS, chassisFacing));
     }
 }

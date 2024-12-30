@@ -25,7 +25,8 @@ public class Shooter extends SubsystemBase {
         IDLE(() -> 0.0, () -> 0.0),
         SPEAKER(() -> 11000.0, () -> 6000.0),
         PASS(() -> RobotState.getInstance().getPassingShooterRPM(), () -> RobotState.getInstance()
-                .getPassingShooterRPM());
+                .getPassingShooterRPM()),
+        AMP(() -> 2050.0, () -> 2050.0);
 
         public final DoubleSupplier leftRPM;
         public final DoubleSupplier rightRPM;
@@ -93,8 +94,8 @@ public class Shooter extends SubsystemBase {
 
     @AutoLogOutput(key = "Shooter/AtGoal")
     public boolean atGoal() {
-        return MathUtil.isNear(goalState.leftRPM.getAsDouble(), leftVelocityFilter.lastValue(), 250.0)
-                && MathUtil.isNear(goalState.rightRPM.getAsDouble(), rightVelocityFilter.lastValue(), 250.0);
+        return MathUtil.isNear(goalState.leftRPM.getAsDouble(), leftVelocityFilter.lastValue(), 500.0)
+                && MathUtil.isNear(goalState.rightRPM.getAsDouble(), rightVelocityFilter.lastValue(), 500.0);
     }
 
     public void stop() {

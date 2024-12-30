@@ -37,7 +37,8 @@ public class Pivot extends SubsystemBase {
     public enum PivotState {
         STOW(() -> MIN_ANGLE),
         SPEAKER(() -> RobotState.getInstance().getSpeakerAimingParameters().pivotAngle()),
-        PASS(() -> RobotState.getInstance().getPassingAimingParameters().pivotAngle());
+        PASS(() -> RobotState.getInstance().getPassingAimingParameters().pivotAngle()),
+        AMP(() -> Rotation2d.fromDegrees(47.0));
 
         private final Supplier<Rotation2d> position;
 
@@ -111,7 +112,7 @@ public class Pivot extends SubsystemBase {
     }
 
     public Command persistentStateCommand(PivotState state) {
-        return Commands.run(() -> setGoal(state), this).finallyDo(this::stop);
+        return Commands.run(() -> setGoal(state), this).finallyDo(() -> setGoal(PivotState.STOW));
     }
 
     public Command blockingStateCommand(PivotState state) {

@@ -63,5 +63,34 @@
                 -0.286912
             ]
         }
+    ],
+    "cameras": [
+        {
+            "name": "Limelight",
+            "rotations": [
+                {
+                    "axis": "x",
+                    "degrees": 0
+                },
+                {
+                    "axis": "y",
+                    "degrees": 0
+                },
+                {
+                    "axis": "z",
+                    "degrees": 0
+                }
+            ],
+            "position": [
+                0,
+                0,
+                0
+            ],
+            "resolution": [
+                1280,
+                720
+            ],
+            "fov": 70
+        }
     ]
 }

@@ -34,4 +34,11 @@ public class AimingCommands {
                                         RobotState.getInstance().getRobotPose()))))
                 .finallyDo(shooter::stop);
     }
+
+    public static Command ampAimCommand(Turret turret, Pivot pivot, Shooter shooter) {
+        return Commands.parallel(
+                turret.persistentStateCommand(Turret.TurretState.AMP),
+                pivot.persistentStateCommand(Pivot.PivotState.AMP),
+                shooter.persistentStateCommand(Shooter.ShooterState.AMP));
+    }
 }

@@ -63,7 +63,7 @@ public class AprilTagVision extends SubsystemBase {
             Dimension resolution,
             double trustCoeff) {}
 
-    private static final CameraConfig[] cameraConfigs = new CameraConfig[] {
+    public static final CameraConfig[] cameraConfigs = new CameraConfig[] {
         new CameraConfig(
                 "limelight",
                 new Transform3d(

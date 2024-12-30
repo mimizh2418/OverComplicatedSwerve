@@ -172,9 +172,22 @@ public class RobotContainer {
         driver.leftTrigger(0.5).whileTrue(IntakeCommands.continuousIntakeCommand(intake, feeder));
         driver.leftBumper().whileTrue(IntakeCommands.reverseCommand(intake, feeder));
 
-        Command aimCommand = AimingCommands.dynamicAimCommand(turret, pivot, shooter);
-        driver.rightBumper().toggleOnTrue(aimCommand);
-        driver.rightTrigger().onTrue(IntakeCommands.feedCommand(intake, feeder).onlyIf(shooter::atGoal));
+        Command shootingAimCommand = AimingCommands.dynamicAimCommand(turret, pivot, shooter);
+        Command ampAimCommand = AimingCommands.ampAimCommand(turret, pivot, shooter);
+
+        driver.rightBumper().toggleOnTrue(shootingAimCommand);
+        driver.y().toggleOnTrue(ampAimCommand);
+
+        driver.rightTrigger()
+                .and(shootingAimCommand::isScheduled)
+                .and(shooter::atGoal)
+                .onTrue(IntakeCommands.feedCommand(intake, feeder));
+        driver.rightTrigger()
+                .and(ampAimCommand::isScheduled)
+                .and(shooter::atGoal)
+                .and(pivot::atGoal)
+                .and(turret::atGoal)
+                .onTrue(IntakeCommands.feedCommand(intake, feeder));
 
         if (Constants.currentMode == Constants.Mode.SIM) {
             driver.back()

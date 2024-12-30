@@ -37,7 +37,8 @@ public class Turret extends SubsystemBase {
     public enum TurretState {
         STOW(() -> Rotation2d.kZero),
         SPEAKER(() -> RobotState.getInstance().getSpeakerAimingParameters().turretAngle()),
-        PASS(() -> RobotState.getInstance().getPassingAimingParameters().turretAngle());
+        PASS(() -> RobotState.getInstance().getPassingAimingParameters().turretAngle()),
+        AMP(() -> Rotation2d.k180deg);
 
         private final Supplier<Rotation2d> position;
 
@@ -98,8 +99,7 @@ public class Turret extends SubsystemBase {
     }
 
     public boolean atGoal() {
-        return MathUtil.isNear(
-                goalState.position.get().getDegrees(), inputs.position.getDegrees(), TOLERANCE.getDegrees());
+        return Math.abs(goalState.position.get().minus(inputs.position).getDegrees()) < TOLERANCE.getDegrees();
     }
 
     public void setBrakeMode(boolean enabled) {
