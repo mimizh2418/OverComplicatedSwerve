@@ -423,7 +423,7 @@ public class Drivetrain extends SubsystemBase {
                 .withGyro(() -> new GyroSimulation(0.12 / 120, 0.02))
                 .withSwerveModule(() -> new SwerveModuleSimulation(
                         DCMotor.getKrakenX60Foc(1),
-                        DCMotor.getFalcon500(1),
+                        DCMotor.getFalcon500Foc(1),
                         TunerConstants.FrontLeft.DriveMotorGearRatio,
                         TunerConstants.FrontLeft.SteerMotorGearRatio,
                         Volts.of(TunerConstants.FrontLeft.DriveFrictionVoltage),
