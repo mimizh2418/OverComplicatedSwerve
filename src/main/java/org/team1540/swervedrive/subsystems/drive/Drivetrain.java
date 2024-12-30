@@ -76,9 +76,19 @@ public class Drivetrain extends SubsystemBase {
     private static boolean hasInstance;
     static final Lock odometryLock = new ReentrantLock();
 
-    private static final LoggedTunableNumber translationKP = new LoggedTunableNumber("Drivetrain/Translation/kP", 4.0);
-    private static final LoggedTunableNumber translationKI = new LoggedTunableNumber("Drivetrain/Translation/kI", 0.0);
-    private static final LoggedTunableNumber translationKD = new LoggedTunableNumber("Drivetrain/Translation/kD", 0.0);
+    private static final LoggedTunableNumber trajTranslationKP =
+            new LoggedTunableNumber("Drivetrain/Trajectory/Translation/kP", 4.0);
+    private static final LoggedTunableNumber trajTranslationKI =
+            new LoggedTunableNumber("Drivetrain/Trajectory/Translation/kI", 0.0);
+    private static final LoggedTunableNumber trajTranslationKD =
+            new LoggedTunableNumber("Drivetrain/Trajectory/Translation/kD", 0.0);
+
+    private static final LoggedTunableNumber trajHeadingKP =
+            new LoggedTunableNumber("Drivetrain/Trajectory/Heading/kP", 3.0);
+    private static final LoggedTunableNumber trajHeadingKI =
+            new LoggedTunableNumber("Drivetrain/Trajectory/Heading/kI", 0.0);
+    private static final LoggedTunableNumber trajHeadingKD =
+            new LoggedTunableNumber("Drivetrain/TrajectoryHeading/kD", 0.5);
 
     private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 7.5);
     private static final LoggedTunableNumber headingKI = new LoggedTunableNumber("Drivetrain/Heading/kI", 0.0);
@@ -102,9 +112,9 @@ public class Drivetrain extends SubsystemBase {
     private ChassisSpeeds desiredSpeeds = new ChassisSpeeds();
 
     private final TrajectoryController trajectoryController = new TrajectoryController(
-            translationKP.get(),
-            translationKI.get(),
-            translationKD.get(),
+            trajTranslationKP.get(),
+            trajTranslationKI.get(),
+            trajTranslationKD.get(),
             headingKP.get(),
             headingKI.get(),
             headingKD.get());
@@ -231,16 +241,19 @@ public class Drivetrain extends SubsystemBase {
         LoggedTunableNumber.ifChanged(
                 hashCode(),
                 () -> trajectoryController.setTranslationPID(
-                        translationKP.get(), translationKI.get(), translationKD.get()),
-                translationKP,
-                translationKI,
-                translationKD);
+                        trajTranslationKP.get(), trajTranslationKI.get(), trajTranslationKD.get()),
+                trajTranslationKP,
+                trajTranslationKI,
+                trajTranslationKD);
         LoggedTunableNumber.ifChanged(
                 hashCode(),
-                () -> {
-                    headingController.setPID(headingKP.get(), headingKI.get(), headingKD.get());
-                    trajectoryController.setHeadingPID(headingKP.get(), headingKI.get(), headingKD.get());
-                },
+                () -> trajectoryController.setHeadingPID(trajHeadingKP.get(), trajHeadingKI.get(), trajHeadingKD.get()),
+                trajHeadingKP,
+                trajHeadingKI,
+                trajHeadingKD);
+        LoggedTunableNumber.ifChanged(
+                hashCode(),
+                () -> headingController.setPID(headingKP.get(), headingKI.get(), headingKD.get()),
                 headingKP,
                 headingKI,
                 headingKD);
@@ -423,7 +436,7 @@ public class Drivetrain extends SubsystemBase {
                 .withGyro(() -> new GyroSimulation(0.12 / 120, 0.02))
                 .withSwerveModule(() -> new SwerveModuleSimulation(
                         DCMotor.getKrakenX60Foc(1),
-                        DCMotor.getFalcon500Foc(1),
+                        DCMotor.getKrakenX60Foc(1),
                         TunerConstants.FrontLeft.DriveMotorGearRatio,
                         TunerConstants.FrontLeft.SteerMotorGearRatio,
                         Volts.of(TunerConstants.FrontLeft.DriveFrictionVoltage),

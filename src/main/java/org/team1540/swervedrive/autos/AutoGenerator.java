@@ -81,4 +81,25 @@ public class AutoGenerator {
 
         return routine;
     }
+
+    public AutoRoutine ampLanePDEFABC() {
+        AutoRoutine routine = autoFactory.newRoutine("Amp Lane PDEFABC");
+        AutoTrajectory traj = routine.trajectory("AmpLanePDEFABC");
+        resetPoseInSim(routine, traj);
+
+        routine.active().whileTrue(traj.cmd());
+        routine.active()
+                .onTrue(Commands.runOnce(
+                        () -> intake.setDefaultCommand(IntakeCommands.continuousIntakeCommand(intake, feeder))));
+        routine.active().onFalse(Commands.runOnce(intake::removeDefaultCommand));
+        routine.active().whileTrue(AimingCommands.speakerAimCommand(turret, pivot, shooter));
+
+        traj.atTranslation("ShootP").onTrue(IntakeCommands.feedCommand(intake, feeder));
+        traj.atTranslation("ShootD").onTrue(IntakeCommands.feedCommand(intake, feeder));
+        traj.atTranslation("ShootE").onTrue(IntakeCommands.feedCommand(intake, feeder));
+        traj.atTranslation("ShootF").onTrue(IntakeCommands.feedCommand(intake, feeder));
+        traj.atTranslation("StartContinuousShoot", 0.25).onTrue(IntakeCommands.continuousFeedCommand(intake, feeder));
+
+        return routine;
+    }
 }

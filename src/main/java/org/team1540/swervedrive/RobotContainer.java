@@ -173,7 +173,9 @@ public class RobotContainer {
         driver.leftBumper().whileTrue(IntakeCommands.reverseCommand(intake, feeder));
 
         Command shootingAimCommand = AimingCommands.dynamicAimCommand(turret, pivot, shooter);
-        Command ampAimCommand = AimingCommands.ampAimCommand(turret, pivot, shooter);
+        Command ampAimCommand = Commands.parallel(
+                AimingCommands.ampAimCommand(turret, pivot, shooter),
+                drivetrain.teleopDriveWithHeadingCommand(driver.getHID(), () -> Rotation2d.kCW_90deg, () -> true));
 
         driver.rightBumper().toggleOnTrue(shootingAimCommand);
         driver.y().and(() -> intake.hasNote() || feeder.hasNote()).toggleOnTrue(ampAimCommand);
@@ -201,6 +203,7 @@ public class RobotContainer {
 
     private void configureAutoRoutines() {
         autoChooser.addRoutine("Source Lane PCBADEF Sprint", autoGenerator::sourceLanePCBADEFSprint);
+        autoChooser.addRoutine("Amp Lane PDEFABC", autoGenerator::ampLanePDEFABC);
     }
 
     /**

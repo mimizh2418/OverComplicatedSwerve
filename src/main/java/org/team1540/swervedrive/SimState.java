@@ -29,8 +29,8 @@ public class SimState {
         return instance;
     }
 
-    private static final double INTAKE_TRANSFER_TIME_SECS = 0.15;
-    private static final double FEEDER_TRANSFER_TIME_SECS = 0.15;
+    private static final double INTAKE_TRANSFER_TIME_SECS = 0.25;
+    private static final double FEEDER_TRANSFER_TIME_SECS = 0.25;
 
     private static final double INTAKE_VOLTAGE_INTEGRAL_THRESH = 12.0 * INTAKE_TRANSFER_TIME_SECS;
     private static final double FEEDER_VOLTAGE_INTEGRAL_THRESH = 12.0 * FEEDER_TRANSFER_TIME_SECS;
