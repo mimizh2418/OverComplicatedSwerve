@@ -1,7 +1,6 @@
 package org.team1540.swervedrive;
 
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -134,9 +133,7 @@ public class RobotContainer {
     }
 
     private void configureRobotModeTriggers() {
-        RobotModeTriggers.teleop()
-                .and(DriverStation::isFMSAttached)
-                .onTrue(Commands.runOnce(drivetrain::zeroFieldOrientation));
+        RobotModeTriggers.teleop().onTrue(Commands.runOnce(drivetrain::zeroFieldOrientation));
     }
 
     /**
@@ -173,9 +170,9 @@ public class RobotContainer {
         driver.leftBumper().whileTrue(IntakeCommands.reverseCommand(intake, feeder));
 
         Command shootingAimCommand = AimingCommands.dynamicAimCommand(turret, pivot, shooter);
-        Command ampAimCommand = Commands.parallel(
-                AimingCommands.ampAimCommand(turret, pivot, shooter),
-                drivetrain.teleopDriveWithHeadingCommand(driver.getHID(), () -> Rotation2d.kCW_90deg, () -> true));
+        Command ampAimCommand = Commands.deadline(
+                drivetrain.teleopDriveWithHeadingCommand(driver.getHID(), () -> Rotation2d.kCW_90deg, () -> true),
+                AimingCommands.ampAimCommand(turret, pivot, shooter));
 
         driver.rightBumper().toggleOnTrue(shootingAimCommand);
         driver.y().and(() -> intake.hasNote() || feeder.hasNote()).toggleOnTrue(ampAimCommand);
@@ -196,6 +193,7 @@ public class RobotContainer {
                     .onTrue(Commands.runOnce(() -> {
                                 SimulatedArena.getInstance().resetFieldForAuto();
                                 robotState.resetPose(FieldConstants.getSubwooferStartingPose());
+                                drivetrain.zeroFieldOrientation();
                             })
                             .ignoringDisable(true));
         }

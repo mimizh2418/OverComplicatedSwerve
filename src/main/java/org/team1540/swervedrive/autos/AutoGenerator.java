@@ -69,7 +69,7 @@ public class AutoGenerator {
         routine.active()
                 .onTrue(Commands.runOnce(
                         () -> intake.setDefaultCommand(IntakeCommands.continuousIntakeCommand(intake, feeder))));
-        routine.active().onFalse(Commands.runOnce(intake::removeDefaultCommand));
+        routine.anyDone(traj).onTrue(Commands.runOnce(intake::removeDefaultCommand));
         routine.active().whileTrue(AimingCommands.speakerAimCommand(turret, pivot, shooter));
 
         traj.atTranslation("StartContinuousShoot")
@@ -91,7 +91,7 @@ public class AutoGenerator {
         routine.active()
                 .onTrue(Commands.runOnce(
                         () -> intake.setDefaultCommand(IntakeCommands.continuousIntakeCommand(intake, feeder))));
-        routine.active().onFalse(Commands.runOnce(intake::removeDefaultCommand));
+        routine.anyDone(traj).onTrue(Commands.runOnce(intake::removeDefaultCommand));
         routine.active().whileTrue(AimingCommands.speakerAimCommand(turret, pivot, shooter));
 
         traj.atTranslation("ShootP").onTrue(IntakeCommands.feedCommand(intake, feeder));

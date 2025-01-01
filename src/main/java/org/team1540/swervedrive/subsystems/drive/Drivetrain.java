@@ -88,7 +88,7 @@ public class Drivetrain extends SubsystemBase {
     private static final LoggedTunableNumber trajHeadingKI =
             new LoggedTunableNumber("Drivetrain/Trajectory/Heading/kI", 0.0);
     private static final LoggedTunableNumber trajHeadingKD =
-            new LoggedTunableNumber("Drivetrain/TrajectoryHeading/kD", 0.5);
+            new LoggedTunableNumber("Drivetrain/Trajectory/Heading/kD", 0.5);
 
     private static final LoggedTunableNumber headingKP = new LoggedTunableNumber("Drivetrain/Heading/kP", 7.5);
     private static final LoggedTunableNumber headingKI = new LoggedTunableNumber("Drivetrain/Heading/kI", 0.0);
@@ -219,6 +219,7 @@ public class Drivetrain extends SubsystemBase {
                 for (Module module : modules) module.runCharacterization(ffCharacterizationInput);
             } else {
                 SwerveModuleState[] setpointStates = kinematics.toSwerveModuleStates(desiredSpeeds);
+                SwerveDriveKinematics.desaturateWheelSpeeds(setpointStates, MAX_LINEAR_SPEED_MPS);
                 for (int i = 0; i < 4; i++) {
                     modules[i].runSetpoint(setpointStates[i]);
                 }
@@ -297,10 +298,17 @@ public class Drivetrain extends SubsystemBase {
 
     /** Zeroes field-oriented drive to the field based on the calculated odometry position */
     public void zeroFieldOrientation() {
-        fieldOrientationOffset = rawGyroRotation.minus(
-                AllianceFlipUtil.shouldFlip()
-                        ? RobotState.getInstance().getRobotRotation().plus(Rotation2d.k180deg)
-                        : RobotState.getInstance().getRobotRotation());
+        if (DriverStation.isFMSAttached()) {
+            fieldOrientationOffset = rawGyroRotation.minus(
+                    AllianceFlipUtil.shouldFlip()
+                            ? RobotState.getInstance().getRobotRotation().plus(Rotation2d.k180deg)
+                            : RobotState.getInstance().getRobotRotation());
+        } else {
+            fieldOrientationOffset = rawGyroRotation.minus(
+                    AllianceFlipUtil.shouldFlip()
+                            ? RobotState.getInstance().getRobotRotation()
+                            : RobotState.getInstance().getRobotRotation().plus(Rotation2d.k180deg));
+        }
     }
 
     /** Sets the brake mode of all modules */
