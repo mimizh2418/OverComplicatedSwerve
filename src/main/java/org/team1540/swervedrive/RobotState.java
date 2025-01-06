@@ -127,10 +127,7 @@ public class RobotState {
 
     @AutoLogOutput(key = "Odometry/FieldRelativeVelocity")
     public ChassisSpeeds getFieldRelativeVelocity() {
-        ChassisSpeeds velocity = new ChassisSpeeds(
-                robotVelocity.vxMetersPerSecond, robotVelocity.vyMetersPerSecond, robotVelocity.omegaRadiansPerSecond);
-        velocity.toFieldRelativeSpeeds(getRotation());
-        return velocity;
+        return ChassisSpeeds.fromRobotRelativeSpeeds(getRobotVelocity(), getRotation());
     }
 
     public Pose2d predictRobotPose(double lookaheadSeconds) {

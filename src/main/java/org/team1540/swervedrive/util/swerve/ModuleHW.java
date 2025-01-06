@@ -14,7 +14,9 @@ import edu.wpi.first.math.util.Units;
 import org.team1540.swervedrive.util.PhoenixUtil;
 
 public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncoder) {
-    public static ModuleHW fromModuleConstants(SwerveModuleConstants constants, String canBus) {
+    public static ModuleHW fromModuleConstants(
+            SwerveModuleConstants<TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration> constants,
+            String canBus) {
         TalonFX drive = new TalonFX(constants.DriveMotorId, canBus);
         TalonFXConfiguration driveConfig = constants.DriveMotorInitialConfigs;
 
@@ -35,9 +37,9 @@ public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncod
 
         PhoenixUtil.tryUntilOk(5, () -> drive.getConfigurator().apply(driveConfig));
 
-        CANcoder turnEncoder = new CANcoder(constants.CANcoderId, canBus);
-        CANcoderConfiguration turnEncoderConfig = constants.CANcoderInitialConfigs;
-        turnEncoderConfig.MagnetSensor.MagnetOffset = constants.CANcoderOffset;
+        CANcoder turnEncoder = new CANcoder(constants.EncoderId, canBus);
+        CANcoderConfiguration turnEncoderConfig = constants.EncoderInitialConfigs;
+        turnEncoderConfig.MagnetSensor.MagnetOffset = constants.EncoderOffset;
         turnEncoderConfig.MagnetSensor.SensorDirection = SensorDirectionValue.CounterClockwise_Positive;
         turnEncoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5;
 
@@ -54,7 +56,7 @@ public record ModuleHW(TalonFX driveMotor, TalonFX turnMotor, CANcoder turnEncod
             case RemoteCANcoder -> FeedbackSensorSourceValue.RemoteCANcoder;
             case FusedCANcoder -> FeedbackSensorSourceValue.FusedCANcoder;
             case SyncCANcoder -> FeedbackSensorSourceValue.SyncCANcoder;};
-        turnConfig.Feedback.FeedbackRemoteSensorID = constants.CANcoderId;
+        turnConfig.Feedback.FeedbackRemoteSensorID = constants.EncoderId;
         turnConfig.Feedback.RotorToSensorRatio = constants.SteerMotorGearRatio;
         turnConfig.Feedback.SensorToMechanismRatio = 1.0;
         turnConfig.CurrentLimits.SupplyCurrentLimit = 70;

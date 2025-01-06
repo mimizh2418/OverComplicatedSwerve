@@ -20,7 +20,6 @@ public class AutoGenerator {
                 drivetrain::followTrajectory,
                 true,
                 drivetrain,
-                new AutoFactory.AutoBindings(),
                 (trajectory, starting) -> {
                     if (starting) robotState.setActiveTrajectory(trajectory);
                     else robotState.clearActiveTrajectory();

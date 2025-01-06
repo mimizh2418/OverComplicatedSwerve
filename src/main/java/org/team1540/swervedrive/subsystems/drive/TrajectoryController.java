@@ -32,8 +32,7 @@ public class TrajectoryController {
                 trajectorySample.omega
                         + headingController.calculate(
                                 currentPose.getRotation().getRadians(), trajectorySample.heading));
-        speeds.toRobotRelativeSpeeds(currentPose.getRotation());
-        return speeds;
+        return ChassisSpeeds.fromFieldRelativeSpeeds(speeds, currentPose.getRotation());
     }
 
     public void setTranslationPID(double kP, double kI, double kD) {

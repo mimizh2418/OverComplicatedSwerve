@@ -27,6 +27,7 @@ import org.ironmaple.simulation.drivesims.GyroSimulation;
 import org.ironmaple.simulation.drivesims.SwerveDriveSimulation;
 import org.ironmaple.simulation.drivesims.SwerveModuleSimulation;
 import org.ironmaple.simulation.drivesims.configs.DriveTrainSimulationConfig;
+import org.ironmaple.simulation.drivesims.configs.SwerveModuleSimulationConfig;
 import org.littletonrobotics.junction.AutoLogOutput;
 import org.littletonrobotics.junction.Logger;
 import org.team1540.swervedrive.Constants;
@@ -249,8 +250,7 @@ public class Drivetrain extends SubsystemBase {
      * @param speeds Speeds in meters/sec
      */
     private void runVelocity(ChassisSpeeds speeds) {
-        speeds.discretize(Constants.LOOP_PERIOD_SECS);
-        desiredSpeeds = speeds;
+        desiredSpeeds = ChassisSpeeds.discretize(speeds, Constants.LOOP_PERIOD_SECS);
     }
 
     public void followTrajectory(SwerveSample trajectorySample) {
@@ -337,7 +337,8 @@ public class Drivetrain extends SubsystemBase {
                                     linearPercent.get().getY() * MAX_LINEAR_SPEED_MPS,
                                     omegaPercent.getAsDouble() * MAX_ANGULAR_SPEED_RADS_PER_SEC);
                             if (fieldRelative.getAsBoolean()) {
-                                speeds.toRobotRelativeSpeeds(rawGyroRotation.minus(fieldOrientationOffset));
+                                speeds = ChassisSpeeds.fromFieldRelativeSpeeds(
+                                        speeds, rawGyroRotation.minus(fieldOrientationOffset));
                             }
                             runVelocity(speeds);
                         },
@@ -417,7 +418,7 @@ public class Drivetrain extends SubsystemBase {
                 .withBumperSize(
                         Meters.of(Constants.BUMPER_LENGTH_X_METERS), Meters.of(Constants.BUMPER_LENGTH_Y_METERS))
                 .withGyro(() -> new GyroSimulation(0.12 / 120, 0.02))
-                .withSwerveModule(() -> new SwerveModuleSimulation(
+                .withSwerveModule(() -> new SwerveModuleSimulation(new SwerveModuleSimulationConfig(
                         DCMotor.getKrakenX60Foc(1),
                         DCMotor.getFalcon500(1),
                         TunerConstants.FrontLeft.DriveMotorGearRatio,
@@ -426,7 +427,7 @@ public class Drivetrain extends SubsystemBase {
                         Volts.of(TunerConstants.FrontLeft.SteerFrictionVoltage),
                         Meters.of(TunerConstants.FrontLeft.WheelRadius),
                         KilogramSquareMeters.of(TunerConstants.FrontLeft.SteerInertia),
-                        WHEEL_COF));
+                        WHEEL_COF)));
         var driveSim = new SwerveDriveSimulation(simConfig, Pose2d.kZero);
 
         RobotState.getInstance().configureDriveSim(driveSim);

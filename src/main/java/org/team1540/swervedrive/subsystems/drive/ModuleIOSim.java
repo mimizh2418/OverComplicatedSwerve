@@ -2,6 +2,8 @@ package org.team1540.swervedrive.subsystems.drive;
 
 import static edu.wpi.first.units.Units.*;
 
+import com.ctre.phoenix6.configs.CANcoderConfiguration;
+import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.swerve.SwerveModuleConstants;
 import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.controller.PIDController;
@@ -37,7 +39,9 @@ public class ModuleIOSim implements ModuleIO {
     private boolean driveClosedLoop;
     private boolean turnClosedLoop;
 
-    public ModuleIOSim(SwerveModuleConstants constants, SwerveModuleSimulation moduleSim) {
+    public ModuleIOSim(
+            SwerveModuleConstants<TalonFXConfiguration, TalonFXConfiguration, CANcoderConfiguration> constants,
+            SwerveModuleSimulation moduleSim) {
         this.moduleSim = moduleSim;
         this.driveMotor =
                 moduleSim.useGenericMotorControllerForDrive().withCurrentLimit(Amps.of(constants.SlipCurrent));
@@ -53,9 +57,9 @@ public class ModuleIOSim implements ModuleIO {
     @Override
     public void updateInputs(ModuleIOInputs inputs) {
         if (driveClosedLoop) {
-            driveAppliedVolts = Volts.of(drivePID.calculate(
-                            moduleSim.getDriveWheelFinalSpeed().in(RotationsPerSecond)))
-                    .plus(driveFF.calculate(RotationsPerSecond.of(drivePID.getSetpoint())));
+            driveAppliedVolts = Volts.of(
+                    drivePID.calculate(moduleSim.getDriveWheelFinalSpeed().in(RotationsPerSecond))
+                            + driveFF.calculate(drivePID.getSetpoint()));
         }
         if (turnClosedLoop) {
             turnAppliedVolts = Volts.of(
